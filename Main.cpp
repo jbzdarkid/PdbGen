@@ -22,6 +22,7 @@
 #include <sstream>
 
 namespace cv = llvm::codeview;
+using namespace std;
 
 namespace
 {
@@ -29,100 +30,66 @@ llvm::ExitOnError ExitOnErr;
 
 struct ModuleInfo
 {
-    bool is64Bit{};
-    std::vector<llvm::object::coff_section> sections;
-    cv::GUID guid{};
-    uint32_t age{};
-    uint32_t signature{};
+    bool is64Bit;
+    vector<llvm::object::coff_section> sections;
+    cv::GUID guid;
+    uint32_t age;
+    uint32_t signature;
 };
 
-llvm::Error ReadModuleInfo(const std::string& modulePath, ModuleInfo& info)
+llvm::Error ReadModuleInfo(const string& modulePath, ModuleInfo& info)
 {
     using namespace llvm;
     using namespace llvm::object;
 
-    auto expectedBinary = createBinary(modulePath);
-    if (!expectedBinary)
-        return expectedBinary.takeError();
+    Expected<OwningBinary<Binary>> expectedBinary = createBinary(modulePath);
+    if (!expectedBinary) return expectedBinary.takeError();
 
-    OwningBinary<Binary> binary = std::move(*expectedBinary);
+    OwningBinary<Binary> binary = move(*expectedBinary);
 
-    if (binary.getBinary()->isCOFF()) {
-        auto const obj = llvm::cast<COFFObjectFile>(binary.getBinary());
-        for (auto const& sectionRef : obj->sections())
-            info.sections.push_back(*obj->getCOFFSection(sectionRef));
+    if (!binary.getBinary()->isCOFF()) return errorCodeToError(make_error_code(errc::not_supported));
 
-        info.is64Bit = obj->is64();
-        for (auto const& debugDir : obj->debug_directories()) {
-            info.signature = debugDir.TimeDateStamp;
-            if (debugDir.Type == COFF::IMAGE_DEBUG_TYPE_CODEVIEW) {
-                cv::DebugInfo const* debugInfo;
-                StringRef pdbFileName;
-                if (auto const ec =
-                        obj->getDebugPDBInfo(&debugDir, debugInfo, pdbFileName))
-                    return errorCodeToError(ec);
+    const auto obj = llvm::cast<COFFObjectFile>(binary.getBinary());
+    for (const auto& sectionRef : obj->sections())
+        info.sections.push_back(*obj->getCOFFSection(sectionRef));
 
-                switch (debugInfo->Signature.CVSignature) {
+    info.is64Bit = obj->is64();
+    for (const auto& debugDir : obj->debug_directories()) {
+        // wait, why is this a loop?
+        info.signature = debugDir.TimeDateStamp; // TODO: Timestamp.now()
+        if (debugDir.Type == COFF::IMAGE_DEBUG_TYPE_CODEVIEW) {
+            const cv::DebugInfo* debugInfo;
+            StringRef pdbFileName;
+            if (auto ec = obj->getDebugPDBInfo(&debugDir, debugInfo, pdbFileName))
+                return errorCodeToError(ec);
+
+            switch (debugInfo->Signature.CVSignature) {
                 case OMF::Signature::PDB70:
                     info.age = debugInfo->PDB70.Age;
-                    std::memcpy(&info.guid, debugInfo->PDB70.Signature,
-                                sizeof(info.guid));
+                    memcpy(&info.guid, debugInfo->PDB70.Signature, sizeof(info.guid));
                     break;
-                }
             }
         }
-
-        return Error::success();
     }
 
-    return errorCodeToError(std::make_error_code(std::errc::not_supported));
+    return Error::success();
 }
 
-bool ReadSymbolEntry(llvm::BumpPtrAllocator& allocator, std::string_view line,
-                     llvm::StringRef& name, uint32_t& rva)
-{
-    size_t const delim = line.find('\t');
-    if (delim == std::string::npos)
-        return false;
+// TODO: in64_t? How else do we work with 64 bit processes?
+cv::PublicSym32 CreatePublicSymbol(const char* name, int32_t offset) {
+    using namespace llvm::codeview;
 
-    auto const nameStr = std::string_view(line).substr(0, delim);
-    auto const rvaStr = std::string_view(line).substr(delim + 1);
-
-    std::stringstream ss;
-    ss << std::hex << rvaStr;
-    ss >> rva;
-
-    auto const nameBuffer = allocator.Allocate<char>(nameStr.length() * nameStr[0]);
-    std::copy_n(nameStr.data(), nameStr.length(), nameBuffer);
-    name = llvm::StringRef(nameBuffer, nameStr.length());
-    return true;
+    PublicSym32 symbol(SymbolRecordKind::PublicSym32);
+    symbol.Offset = offset;
+    symbol.Segment = 1;
+    symbol.Flags = PublicSymFlags::Function;
+    symbol.Name = name;
+    return symbol;
 }
 
-void ReadSymbols(llvm::BumpPtrAllocator& allocator, char const* symbolListFile,
-                 std::vector<cv::PublicSym32>& publics)
+void GeneratePDB(const ModuleInfo& moduleInfo, const vector<cv::PublicSym32>& publics, char const* outputFileName)
 {
-    std::ifstream input;
-    input.open(symbolListFile, std::ios_base::in);
-
-    std::string line;
-    while (std::getline(input, line)) {
-        llvm::StringRef name;
-        uint32_t rva;
-        if (!ReadSymbolEntry(allocator, line, name, rva))
-            continue;
-        cv::PublicSym32& ps = publics.emplace_back(cv::SymbolRecordKind::PublicSym32);
-        ps.Offset = rva;
-        ps.Segment = 1;
-        ps.Flags = cv::PublicSymFlags::Function;
-        ps.Name = name;
-    }
-}
-
-void GeneratePDB(llvm::BumpPtrAllocator& allocator, ModuleInfo const& moduleInfo,
-                 std::vector<cv::PublicSym32>& publics, char const* outputFileName)
-{
-    char const* const moduleName = "d:\\dummy.obj";
-
+    llvm::BumpPtrAllocator allocator;
     llvm::pdb::PDBFileBuilder builder(allocator);
 
     uint32_t const blockSize = 4096;
@@ -150,8 +117,7 @@ void GeneratePDB(llvm::BumpPtrAllocator& allocator, ModuleInfo const& moduleInfo
     dbiBuilder.setPdbDllVersion(1);
     dbiBuilder.setVersionHeader(llvm::pdb::PdbDbiV70);
 
-    auto const sectionMap =
-        llvm::pdb::DbiStreamBuilder::createSectionMap(moduleInfo.sections);
+    const auto sectionMap = llvm::pdb::DbiStreamBuilder::createSectionMap(moduleInfo.sections);
     dbiBuilder.setSectionMap(sectionMap);
 
     ExitOnErr(dbiBuilder.addDbgStream(
@@ -159,14 +125,12 @@ void GeneratePDB(llvm::BumpPtrAllocator& allocator, ModuleInfo const& moduleInfo
         {reinterpret_cast<uint8_t const*>(moduleInfo.sections.data()),
          moduleInfo.sections.size() * sizeof(moduleInfo.sections[0])}));
 
+    const char* moduleName = "d:\\dummy.obj";
     auto& modiBuilder = ExitOnErr(dbiBuilder.addModuleInfo(moduleName));
     modiBuilder.setObjFileName(moduleName);
 
     auto& gsiBuilder = builder.getGsiBuilder();
-
-    std::sort(publics.begin(), publics.end(),
-              [](auto const& l, auto const& r) { return l.Name < r.Name; });
-    for (cv::PublicSym32 const& pub : publics)
+    for (const cv::PublicSym32& pub : publics)
         gsiBuilder.addPublicSymbol(pub);
 
     auto& tpiBuilder = builder.getTpiBuilder();
@@ -176,7 +140,7 @@ void GeneratePDB(llvm::BumpPtrAllocator& allocator, ModuleInfo const& moduleInfo
     ipiBuilder.setVersionHeader(llvm::pdb::PdbTpiV80);
 
     cv::StringsAndChecksums strings;
-    strings.setStrings(std::make_shared<cv::DebugStringTableSubsection>());
+    strings.setStrings(make_shared<cv::DebugStringTableSubsection>());
     strings.strings()->insert("");
     builder.getStringTableBuilder().setStrings(*strings.strings());
 
@@ -192,17 +156,16 @@ void GeneratePDB(llvm::BumpPtrAllocator& allocator, ModuleInfo const& moduleInfo
 
 int main(int argc, char** argv)
 {
-    llvm::BumpPtrAllocator allocator;
-
     ModuleInfo moduleInfo;
     ExitOnErr(ReadModuleInfo("PDBTest.exe", moduleInfo));
 
-    std::vector<cv::PublicSym32> publics;
-    ReadSymbols(allocator, "symbols.txt", publics);
-    if (publics.empty()) {
-        return 1;
-    }
+    vector<cv::PublicSym32> publics = {
+        CreatePublicSymbol("foo", 0x0),
+        CreatePublicSymbol("bar", 0x20),
+        CreatePublicSymbol("main", 0x40)
+    };
+    sort(publics.begin(), publics.end(), [](const auto& l, const auto& r) { return l.Name < r.Name; });
 
-    GeneratePDB(allocator, moduleInfo, publics, "PDBTest.pdb");
+    GeneratePDB(moduleInfo, publics, "PDBTest.pdb");
     return 0;
 }
