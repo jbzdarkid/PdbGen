@@ -5,15 +5,15 @@
   <PropertyGroup />
   <ItemDefinitionGroup>
     <ClCompile>
-      <AdditionalIncludeDirectories>C:\Users\nrieck\edev\llvm\llvm\include\;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
-      <AdditionalIncludeDirectories Condition="'$(UseDebugLibraries)'=='true'">C:\Users\nrieck\edev\llvm\build\msvc-x86_64-dbg\include\;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
-      <AdditionalIncludeDirectories Condition="'$(UseDebugLibraries)'!='true'">C:\Users\nrieck\edev\llvm\build\msvc-x86_64-opt\include\;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>C:\Users\joblac\Documents\Github\llvm-project\llvm\include\;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories Condition="'$(UseDebugLibraries)'=='true'">C:\Users\joblac\Documents\Github\llvm-project\build\include\;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories Condition="'$(UseDebugLibraries)'!='true'">C:\Users\joblac\Documents\Github\llvm-project\build\include\;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
-      <AdditionalLibraryDirectories Condition="'$(UseDebugLibraries)'=='true'">C:\Users\nrieck\edev\llvm\build\msvc-x86_64-dbg\lib\;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
-      <AdditionalLibraryDirectories Condition="'$(UseDebugLibraries)'!='true'">C:\Users\nrieck\edev\llvm\build\msvc-x86_64-opt\lib\;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalLibraryDirectories Condition="'$(UseDebugLibraries)'=='true'">C:\Users\joblac\Documents\Github\llvm-project\build\Release\lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalLibraryDirectories Condition="'$(UseDebugLibraries)'!='true'">C:\Users\joblac\Documents\Github\llvm-project\build\Release\lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
       <AdditionalDependencies>LLVMDebugInfoCodeView.lib;LLVMDebugInfoMSF.lib;LLVMDebugInfoPDB.lib;%(AdditionalDependencies)</AdditionalDependencies>
-      <AdditionalDependencies>LLVMObject.lib;LLVMBitReader.lib;LLVMCore.lib;LLVMMC.lib;LLVMBinaryFormat.lib;LLVMMCParser.lib;LLVMSupport.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>LLVMObject.lib;LLVMBitReader.lib;LLVMCore.lib;LLVMMC.lib;LLVMBinaryFormat.lib;LLVMMCParser.lib;LLVMSupport.lib;LLVMRemarks.lib;LLVMTextAPI.lib;LLVMBitstreamReader.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup />

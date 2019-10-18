@@ -10,6 +10,7 @@
 *.VC.db
 *.VC.VC.opendb
 ipch/
+.vs/
 
 # VC
 *.pch

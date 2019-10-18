@@ -4,6 +4,7 @@
 #pragma warning(disable : 4244)
 #pragma warning(disable : 4267)
 #pragma warning(disable : 4996)
+#pragma warning(disable : 4624)
 #include <llvm/DebugInfo/CodeView/StringsAndChecksums.h>
 #include <llvm/DebugInfo/MSF/MSFBuilder.h>
 #include <llvm/DebugInfo/PDB/Native/DbiModuleDescriptorBuilder.h>
@@ -18,6 +19,7 @@
 
 #include <charconv>
 #include <fstream>
+#include <sstream>
 
 namespace cv = llvm::codeview;
 
@@ -34,7 +36,7 @@ struct ModuleInfo
     uint32_t signature{};
 };
 
-llvm::Error ReadModuleInfo(llvm::StringRef modulePath, ModuleInfo& info)
+llvm::Error ReadModuleInfo(const std::string& modulePath, ModuleInfo& info)
 {
     using namespace llvm;
     using namespace llvm::object;
@@ -86,10 +88,9 @@ bool ReadSymbolEntry(llvm::BumpPtrAllocator& allocator, std::string_view line,
     auto const nameStr = std::string_view(line).substr(0, delim);
     auto const rvaStr = std::string_view(line).substr(delim + 1);
 
-    auto const result =
-        std::from_chars(rvaStr.data(), rvaStr.data() + rvaStr.length(), rva);
-    if (result.ec != std::errc{})
-        return false;
+    std::stringstream ss;
+    ss << std::hex << rvaStr;
+    ss >> rva;
 
     auto const nameBuffer = allocator.Allocate<char>(nameStr.length() * nameStr[0]);
     std::copy_n(nameStr.data(), nameStr.length(), nameBuffer);
@@ -183,34 +184,25 @@ void GeneratePDB(llvm::BumpPtrAllocator& allocator, ModuleInfo const& moduleInfo
     // dbiBuilder.setGlobalsStreamIndex(gsiBuilder.getGlobalsStreamIndex());
     // dbiBuilder.setSymbolRecordStreamIndex(gsiBuilder.getRecordStreamIdx());
 
-    ExitOnErr(builder.commit(outputFileName));
+    auto mutableGuid = moduleInfo.guid;
+    ExitOnErr(builder.commit(outputFileName, &mutableGuid));
 }
 
 } // namespace
 
 int main(int argc, char** argv)
 {
-    if (argc != 4) {
-        fprintf(stderr, "Usage: %s <input.dll> <symbols.txt> <output.pdb>\n", argv[0]);
-        return 1;
-    }
-
-    char const* const inputModuleFile = argv[1];
-    char const* const symbolListFile = argv[2];
-    char const* const outputFileName = argv[3];
-
     llvm::BumpPtrAllocator allocator;
 
     ModuleInfo moduleInfo;
-    ExitOnErr(ReadModuleInfo(inputModuleFile, moduleInfo));
+    ExitOnErr(ReadModuleInfo("PDBTest.exe", moduleInfo));
 
     std::vector<cv::PublicSym32> publics;
-    ReadSymbols(allocator, symbolListFile, publics);
+    ReadSymbols(allocator, "symbols.txt", publics);
     if (publics.empty()) {
-        fprintf(stderr, "No valid symbol entries found in '%s'\n", symbolListFile);
         return 1;
     }
 
-    GeneratePDB(allocator, moduleInfo, publics, outputFileName);
+    GeneratePDB(allocator, moduleInfo, publics, "PDBTest.pdb");
     return 0;
 }
