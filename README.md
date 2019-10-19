@@ -1,25 +1,19 @@
-# PdbGen
+Fork of PdbGen -- attempting to get these things working:
+- [ ] line numbers
+- [X] function names
+- [ ] local variables
+- [ ] function arguments
+- [ ] type information
+- [ ] static strings
 
-## Overview
+PDBTest is the project I'm using as a mock project -- it has a real PDB which I can inspect and compare the generated PDB against.
 
-A small utility to generate a dummy PDB with the specified list of public symbols.
-This can be used to manually name functions if a PDB file is unavailable.
+PdbGen is the project which creates PDBs. It is used with permission under the MIT license.
 
-To generate the PDB file `foo.pdb` for an existing module `foo.dll` run:
+This project relies on LLVM to create PDBs.
 
-    PdbGen foo.dll foo-symbols.txt foo.pdb
+At some point, I will extract LLVM libraries and include them in this project. Until then, please update PdbGen/LLVMPDB.props to point to your LLVM installation.
 
-`foo-symbols.txt` is a simple text file with each line containing a symbol name
-and its RVA in the module (separated by a tab character):
+LLVM is licensed under Apache 2 (with LLVM extensions). Please see [https://github.com/llvm/llvm-project/tree/master/llvm](here) for a full license.
 
-    ?Foo@@YAXXZ	1968328
-    Bar	1968328
-
-## Building
-
-Requires [LLVM](https://llvm.org/) libraries to build. Rename `LLVMPDB.props.example`
-to `LLVMPDB.props` and change the paths to the LLVM source and build directories.
-
-## License
-
-Code licensed under the [MIT License](LICENSE.txt).
+This project is licensed under Apache 2. Please see LICENSE.TXT for more information.
