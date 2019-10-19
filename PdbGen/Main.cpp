@@ -86,8 +86,7 @@ cv::PublicSym32 CreatePublicSymbol(const char* name, int32_t offset) {
     return symbol;
 }
 
-void GeneratePDB(const ModuleInfo& moduleInfo, const vector<cv::PublicSym32>& publics, char const* outputFileName)
-{
+void GeneratePDB(const ModuleInfo& moduleInfo, const vector<cv::PublicSym32>& publics, char const* outputFileName) {
     llvm::BumpPtrAllocator allocator;
     llvm::pdb::PDBFileBuilder builder(allocator);
 
@@ -150,7 +149,27 @@ void GeneratePDB(const ModuleInfo& moduleInfo, const vector<cv::PublicSym32>& pu
     }
 
     // Apparently, I want a subsection of a module.
-    cv::DebugSubsectionKind::Lines;
+    // cv::DebugSubsectionKind::Lines;
+
+    cv::StringsAndChecksums strings;
+    strings.setStrings(make_shared<cv::DebugStringTableSubsection>());
+    strings.strings()->insert("");
+    strings.strings()->insert("main.c");
+    builder.getStringTableBuilder().setStrings(*strings.strings());
+
+    auto debugSubsection = make_shared<cv::DebugLinesSubsection>(*strings.checksums(), *strings.strings());
+    debugSubsection->createBlock("main.c");
+    debugSubsection->setCodeSize(74); // Or 0x4A
+    debugSubsection->setRelocationAddress(1, 0x5b70);
+    debugSubsection->setFlags(cv::LineFlags::LF_None);
+
+    debugSubsection->addLineInfo(0x00, cv::LineInfo(3, 3, false)); // Offset, Start, End, isStatement
+    debugSubsection->addLineInfo(0x12, cv::LineInfo(4, 4, false)); // Offset, Start, End, isStatement
+    debugSubsection->addLineInfo(0x1A, cv::LineInfo(5, 5, false)); // Offset, Start, End, isStatement
+    debugSubsection->addLineInfo(0x2A, cv::LineInfo(6, 6, false)); // Offset, Start, End, isStatement
+    debugSubsection->addLineInfo(0x40, cv::LineInfo(7, 7, false)); // Offset, Start, End, isStatement
+    modiBuilder.addDebugSubsection(debugSubsection);
+
 
 
 
@@ -169,11 +188,6 @@ void GeneratePDB(const ModuleInfo& moduleInfo, const vector<cv::PublicSym32>& pu
 
     auto& ipiBuilder = builder.getIpiBuilder();
     ipiBuilder.setVersionHeader(llvm::pdb::PdbTpiV80);
-
-    cv::StringsAndChecksums strings;
-    strings.setStrings(make_shared<cv::DebugStringTableSubsection>());
-    strings.strings()->insert("");
-    builder.getStringTableBuilder().setStrings(*strings.strings());
 
     dbiBuilder.setPublicsStreamIndex(gsiBuilder.getPublicsStreamIndex());
     // dbiBuilder.setGlobalsStreamIndex(gsiBuilder.getGlobalsStreamIndex());

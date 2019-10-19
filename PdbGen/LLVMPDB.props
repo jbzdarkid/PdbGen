@@ -10,8 +10,8 @@
       <AdditionalIncludeDirectories Condition="'$(UseDebugLibraries)'!='true'">C:\Users\localhost\Documents\Github\llvm-project\build\include\;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
-      <AdditionalLibraryDirectories Condition="'$(UseDebugLibraries)'=='true'">C:\Users\localhost\Documents\Github\llvm-project\build\Release\lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
-      <AdditionalLibraryDirectories Condition="'$(UseDebugLibraries)'!='true'">C:\Users\localhost\Documents\Github\llvm-project\build\Release\lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalLibraryDirectories Condition="'$(UseDebugLibraries)'=='true'">C:\Users\localhost\Documents\Github\llvm-project\build\Debug\lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalLibraryDirectories Condition="'$(UseDebugLibraries)'!='true'">C:\Users\localhost\Documents\Github\llvm-project\build\MinSizeRel\lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
       <AdditionalDependencies>LLVMDebugInfoCodeView.lib;LLVMDebugInfoMSF.lib;LLVMDebugInfoPDB.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <AdditionalDependencies>LLVMObject.lib;LLVMBitReader.lib;LLVMCore.lib;LLVMMC.lib;LLVMBinaryFormat.lib;LLVMMCParser.lib;LLVMSupport.lib;LLVMRemarks.lib;LLVMTextAPI.lib;LLVMBitstreamReader.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
