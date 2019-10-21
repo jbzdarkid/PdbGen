@@ -127,8 +127,10 @@ void GeneratePDB(const ModuleInfo& moduleInfo, const vector<cv::PublicSym32>& pu
     auto& modiBuilder = ExitOnErr(dbiBuilder.addModuleInfo(moduleName));
     modiBuilder.setObjFileName(moduleName);
 
+    const char* filename = R"(C:\Users\localhost\Documents\GitHub\PdbGen\PDBTest\Main.cpp)";
+
     // Add files to module (presumably necessary to associate source code lines)
-    for (auto file : {"main.c"})
+    for (auto file : {filename})
         ExitOnErr(dbiBuilder.addModuleSourceFile(modiBuilder, file));
 
     // WIP: How do I make symbols? What even are symbols?
@@ -143,35 +145,40 @@ void GeneratePDB(const ModuleInfo& moduleInfo, const vector<cv::PublicSym32>& pu
     // S_GPROC32 - Global function (aka class member). I expect to use this one exclusively. It's hard/impossible to decide if a function is local or not.
     //  Contains function length, as well as "when the stack is initialized", which seems helpful.
     // S_LOCAL - Only defined by llvm, seems to refer to arguments?
-    vector<cv::CVSymbol> symbols;
-    for (auto symbol : symbols) {
-        modiBuilder.addSymbol(symbol);
-    }
+    // vector<cv::CVSymbol> symbols;
+    // for (auto symbol : symbols) {
+    //     modiBuilder.addSymbol(symbol);
+    // }
 
     // Apparently, I want a subsection of a module.
     // cv::DebugSubsectionKind::Lines;
 
-    cv::StringsAndChecksums strings;
-    strings.setStrings(make_shared<cv::DebugStringTableSubsection>());
-    strings.strings()->insert("");
-    strings.strings()->insert("main.c");
-    builder.getStringTableBuilder().setStrings(*strings.strings());
+    cv::StringsAndChecksums sac;
+    auto strings = make_shared<cv::DebugStringTableSubsection>();
+    strings->insert(filename);
+    sac.setStrings(strings);
+    builder.getStringTableBuilder().setStrings(*strings);
 
-    auto debugSubsection = make_shared<cv::DebugLinesSubsection>(*strings.checksums(), *strings.strings());
-    debugSubsection->createBlock("main.c");
-    debugSubsection->setCodeSize(74); // Or 0x4A
-    debugSubsection->setRelocationAddress(1, 0x5b70);
+    auto checksums = make_shared<cv::DebugChecksumsSubsection>(*strings);
+    checksums->addChecksum(
+        filename,
+        cv::FileChecksumKind::MD5,
+        {0xB2, 0xF9, 0x3D, 0x5E, 0xFA, 0x94, 0xE6, 0x4E, 0x22, 0x3B, 0x81, 0x3C, 0x9D, 0xDD, 0x53, 0x06});
+    sac.setChecksums(checksums);
+    modiBuilder.addDebugSubsection(checksums);
+
+    auto debugSubsection = make_shared<cv::DebugLinesSubsection>(*checksums, *strings);
+    debugSubsection->createBlock(filename);
+    debugSubsection->setCodeSize(0x1B); // Function length (Total instruction count, including ret)
+    debugSubsection->setRelocationAddress(1, 0x20); // Offset from the program base
     debugSubsection->setFlags(cv::LineFlags::LF_None);
 
-    debugSubsection->addLineInfo(0x00, cv::LineInfo(3, 3, false)); // Offset, Start, End, isStatement
-    debugSubsection->addLineInfo(0x12, cv::LineInfo(4, 4, false)); // Offset, Start, End, isStatement
-    debugSubsection->addLineInfo(0x1A, cv::LineInfo(5, 5, false)); // Offset, Start, End, isStatement
-    debugSubsection->addLineInfo(0x2A, cv::LineInfo(6, 6, false)); // Offset, Start, End, isStatement
-    debugSubsection->addLineInfo(0x40, cv::LineInfo(7, 7, false)); // Offset, Start, End, isStatement
+    debugSubsection->addLineInfo(0x00, cv::LineInfo(7, 7, false)); // Offset, Start, End, isStatement
+    // debugSubsection->addLineInfo(0x12, cv::LineInfo(4, 4, false)); // Offset, Start, End, isStatement
+    // debugSubsection->addLineInfo(0x1A, cv::LineInfo(5, 5, false)); // Offset, Start, End, isStatement
+    // debugSubsection->addLineInfo(0x2A, cv::LineInfo(6, 6, false)); // Offset, Start, End, isStatement
+    // debugSubsection->addLineInfo(0x40, cv::LineInfo(7, 7, false)); // Offset, Start, End, isStatement
     modiBuilder.addDebugSubsection(debugSubsection);
-
-
-
 
 
 
