@@ -37,17 +37,23 @@ struct ModuleInfo
     uint32_t signature;
 };
 
-llvm::Error ReadModuleInfo(const string& modulePath, ModuleInfo& info)
+ModuleInfo ReadModuleInfo(const string& modulePath)
 {
     using namespace llvm;
     using namespace llvm::object;
 
+    ModuleInfo info;
+
     Expected<OwningBinary<Binary>> expectedBinary = createBinary(modulePath);
-    if (!expectedBinary) return expectedBinary.takeError();
+    if (!expectedBinary) {
+        ExitOnErr(expectedBinary.takeError());
+    }
 
     OwningBinary<Binary> binary = move(*expectedBinary);
 
-    if (!binary.getBinary()->isCOFF()) return errorCodeToError(make_error_code(errc::not_supported));
+    if (!binary.getBinary()->isCOFF()) {
+        ExitOnErr(errorCodeToError(make_error_code(errc::not_supported)));
+    }
 
     const auto obj = llvm::cast<COFFObjectFile>(binary.getBinary());
     for (const auto& sectionRef : obj->sections())
@@ -55,24 +61,22 @@ llvm::Error ReadModuleInfo(const string& modulePath, ModuleInfo& info)
 
     info.is64Bit = obj->is64();
     for (const auto& debugDir : obj->debug_directories()) {
-        // wait, why is this a loop?
-        info.signature = debugDir.TimeDateStamp; // TODO: Timestamp.now()
+        info.signature = debugDir.TimeDateStamp; // TODO: Timestamp.now()?
         if (debugDir.Type == COFF::IMAGE_DEBUG_TYPE_CODEVIEW) {
             const cv::DebugInfo* debugInfo;
             StringRef pdbFileName;
             if (auto ec = obj->getDebugPDBInfo(&debugDir, debugInfo, pdbFileName))
-                return errorCodeToError(ec);
+                ExitOnErr(errorCodeToError(ec));
 
-            switch (debugInfo->Signature.CVSignature) {
-                case OMF::Signature::PDB70:
-                    info.age = debugInfo->PDB70.Age;
-                    memcpy(&info.guid, debugInfo->PDB70.Signature, sizeof(info.guid));
-                    break;
+            if (debugInfo->Signature.CVSignature == OMF::Signature::PDB70) {
+                info.age = debugInfo->PDB70.Age;
+                memcpy(&info.guid, debugInfo->PDB70.Signature, sizeof(info.guid));
+                break;
             }
         }
     }
 
-    return Error::success();
+    return info;
 }
 
 // TODO: in64_t? How else do we work with 64 bit processes?
@@ -107,7 +111,7 @@ void GeneratePDB(const ModuleInfo& moduleInfo, const vector<cv::PublicSym32>& pu
 
     auto& dbiBuilder = builder.getDbiBuilder();
     dbiBuilder.setAge(moduleInfo.age);
-    dbiBuilder.setBuildNumber(35584);
+    dbiBuilder.setBuildNumber(0x8B00);
     dbiBuilder.setFlags(2);
     dbiBuilder.setMachineType(moduleInfo.is64Bit ? llvm::pdb::PDB_Machine::Amd64
                                                  : llvm::pdb::PDB_Machine::x86);
@@ -167,18 +171,34 @@ void GeneratePDB(const ModuleInfo& moduleInfo, const vector<cv::PublicSym32>& pu
     sac.setChecksums(checksums);
     modiBuilder.addDebugSubsection(checksums);
 
-    auto debugSubsection = make_shared<cv::DebugLinesSubsection>(*checksums, *strings);
-    debugSubsection->createBlock(filename);
-    debugSubsection->setCodeSize(0x1B); // Function length (Total instruction count, including ret)
-    debugSubsection->setRelocationAddress(1, 0x20); // Offset from the program base
-    debugSubsection->setFlags(cv::LineFlags::LF_None);
+    { // Per-function, I think.
+        auto debugSubsection = make_shared<cv::DebugLinesSubsection>(*checksums, *strings);
+        debugSubsection->createBlock(filename);
+        debugSubsection->setCodeSize(70); // Function length (Total instruction count, including ret)
+        debugSubsection->setRelocationAddress(2, 1776); // Offset from the program base (?)
+        debugSubsection->setFlags(cv::LineFlags::LF_None);
 
-    debugSubsection->addLineInfo(0x00, cv::LineInfo(7, 7, false)); // Offset, Start, End, isStatement
-    // debugSubsection->addLineInfo(0x12, cv::LineInfo(4, 4, false)); // Offset, Start, End, isStatement
-    // debugSubsection->addLineInfo(0x1A, cv::LineInfo(5, 5, false)); // Offset, Start, End, isStatement
-    // debugSubsection->addLineInfo(0x2A, cv::LineInfo(6, 6, false)); // Offset, Start, End, isStatement
-    // debugSubsection->addLineInfo(0x40, cv::LineInfo(7, 7, false)); // Offset, Start, End, isStatement
-    modiBuilder.addDebugSubsection(debugSubsection);
+        debugSubsection->addLineInfo(0x00, cv::LineInfo(7, 7, true)); // Offset, Start, End, isStatement
+        // debugSubsection->addLineInfo(0x12, cv::LineInfo(4, 4, false)); // Offset, Start, End, isStatement
+        // debugSubsection->addLineInfo(0x1A, cv::LineInfo(5, 5, false)); // Offset, Start, End, isStatement
+        // debugSubsection->addLineInfo(0x2A, cv::LineInfo(6, 6, false)); // Offset, Start, End, isStatement
+        // debugSubsection->addLineInfo(0x40, cv::LineInfo(7, 7, false)); // Offset, Start, End, isStatement
+        modiBuilder.addDebugSubsection(debugSubsection);
+    }
+    { // Per-function, I think.
+        auto debugSubsection = make_shared<cv::DebugLinesSubsection>(*checksums, *strings);
+        debugSubsection->createBlock(filename);
+        debugSubsection->setCodeSize(70); // Function length (Total instruction count, including ret)
+        debugSubsection->setRelocationAddress(2, 1872); // Offset from the program base (?)
+        debugSubsection->setFlags(cv::LineFlags::LF_None);
+
+        debugSubsection->addLineInfo(0x00, cv::LineInfo(1, 1, true)); // Offset, Start, End, isStatement
+        debugSubsection->addLineInfo(42, cv::LineInfo(2, 2, true)); // Offset, Start, End, isStatement
+        // debugSubsection->addLineInfo(0x1A, cv::LineInfo(5, 5, false)); // Offset, Start, End, isStatement
+        // debugSubsection->addLineInfo(0x2A, cv::LineInfo(6, 6, false)); // Offset, Start, End, isStatement
+        // debugSubsection->addLineInfo(0x40, cv::LineInfo(7, 7, false)); // Offset, Start, End, isStatement
+        modiBuilder.addDebugSubsection(debugSubsection);
+    }
 
 
 
@@ -208,8 +228,7 @@ void GeneratePDB(const ModuleInfo& moduleInfo, const vector<cv::PublicSym32>& pu
 
 int main(int argc, char** argv)
 {
-    ModuleInfo moduleInfo;
-    ExitOnErr(ReadModuleInfo("PDBTest.exe", moduleInfo));
+    ModuleInfo moduleInfo = ReadModuleInfo("C:/Users/localhost/Documents/GitHub/PdbGen/PdbGen/PDBTest.exe");
 
     vector<cv::PublicSym32> publics = {
         CreatePublicSymbol("foo", 0x0),
@@ -218,6 +237,6 @@ int main(int argc, char** argv)
     };
     sort(publics.begin(), publics.end(), [](const auto& l, const auto& r) { return l.Name < r.Name; });
 
-    GeneratePDB(moduleInfo, publics, "PDBTest.pdb");
+    GeneratePDB(moduleInfo, publics, "C:/Users/localhost/Documents/GitHub/PdbGen/PdbGen/PDBTest.pdb");
     return 0;
 }
