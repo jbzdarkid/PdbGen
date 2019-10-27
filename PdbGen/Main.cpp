@@ -3,9 +3,11 @@
 #pragma warning(disable : 4146)
 #pragma warning(disable : 4244)
 #pragma warning(disable : 4267)
-#pragma warning(disable : 4996)
 #pragma warning(disable : 4624)
+#pragma warning(disable : 4996)
+#include <llvm/DebugInfo/CodeView/DebugSymbolRVASubsection.h>
 #include <llvm/DebugInfo/CodeView/StringsAndChecksums.h>
+#include <llvm/DebugInfo/CodeView/SymbolSerializer.h>
 #include <llvm/DebugInfo/MSF/MSFBuilder.h>
 #include <llvm/DebugInfo/PDB/Native/DbiModuleDescriptorBuilder.h>
 #include <llvm/DebugInfo/PDB/Native/DbiStreamBuilder.h>
@@ -13,23 +15,18 @@
 #include <llvm/DebugInfo/PDB/Native/InfoStreamBuilder.h>
 #include <llvm/DebugInfo/PDB/Native/PDBFileBuilder.h>
 #include <llvm/DebugInfo/PDB/Native/TpiStreamBuilder.h>
-#include <llvm/Object/Binary.h>
 #include <llvm/Object/COFF.h>
 #pragma warning(pop)
 
-#include <charconv>
-#include <fstream>
-#include <sstream>
+#include "MD5.h"
 
 namespace cv = llvm::codeview;
 using namespace std;
 
-namespace
-{
 llvm::ExitOnError ExitOnErr;
+llvm::BumpPtrAllocator llvmAllocator;
 
-struct ModuleInfo
-{
+struct ModuleInfo {
     bool is64Bit;
     vector<llvm::object::coff_section> sections;
     cv::GUID guid;
@@ -70,7 +67,8 @@ ModuleInfo ReadModuleInfo(const string& modulePath)
 
             if (debugInfo->Signature.CVSignature == OMF::Signature::PDB70) {
                 info.age = debugInfo->PDB70.Age;
-                memcpy(&info.guid, debugInfo->PDB70.Signature, sizeof(info.guid));
+                for (size_t i = 0; i<16; i++) info.guid.Guid[i] = debugInfo->PDB70.Signature[i];
+                // memcpy(&info.guid, debugInfo->PDB70.Signature, sizeof(info.guid));
                 break;
             }
         }
@@ -85,57 +83,29 @@ cv::PublicSym32 CreatePublicSymbol(const char* name, int32_t offset) {
     PublicSym32 symbol(SymbolRecordKind::PublicSym32);
     symbol.Flags = PublicSymFlags::Function;
     symbol.Offset = offset;
-    symbol.Segment = 1;
+    symbol.Segment = 2;
     symbol.Name = name;
     return symbol;
 }
 
-void GeneratePDB(const ModuleInfo& moduleInfo, const vector<cv::PublicSym32>& publics, char const* outputFileName) {
-    llvm::BumpPtrAllocator allocator;
-    llvm::pdb::PDBFileBuilder builder(allocator);
+template <typename SymType>
+void AddSymbol(llvm::pdb::DbiModuleDescriptorBuilder& modiBuilder, SymType& sym) {
+    cv::CVSymbol cvSym = cv::SymbolSerializer::writeOneSymbol(sym, llvmAllocator, cv::CodeViewContainer::Pdb);
+    modiBuilder.addSymbol(cvSym);
+}
 
-    uint32_t const blockSize = 4096;
-    ExitOnErr(builder.initialize(blockSize));
-
-    // Add each of the reserved streams.  We might not put any data in them,
-    // but at least they have to be present.
-    for (uint32_t i = 0; i < llvm::pdb::kSpecialStreamCount; ++i)
-        ExitOnErr(builder.getMsfBuilder().addStream(0));
-
-    auto& infoBuilder = builder.getInfoBuilder();
-    infoBuilder.setAge(moduleInfo.age);
-    infoBuilder.setGuid(moduleInfo.guid);
-    infoBuilder.setSignature(moduleInfo.signature);
-    infoBuilder.setVersion(llvm::pdb::PdbImplVC70);
-    infoBuilder.addFeature(llvm::pdb::PdbRaw_FeatureSig::VC140);
-
-    auto& dbiBuilder = builder.getDbiBuilder();
-    dbiBuilder.setAge(moduleInfo.age);
-    dbiBuilder.setBuildNumber(0x8B00);
-    dbiBuilder.setFlags(2);
-    dbiBuilder.setMachineType(moduleInfo.is64Bit ? llvm::pdb::PDB_Machine::Amd64
-                                                 : llvm::pdb::PDB_Machine::x86);
-    dbiBuilder.setPdbDllRbld(1);
-    dbiBuilder.setPdbDllVersion(1);
-    dbiBuilder.setVersionHeader(llvm::pdb::PdbDbiV70);
-
-    const auto sectionMap = llvm::pdb::DbiStreamBuilder::createSectionMap(moduleInfo.sections);
-    dbiBuilder.setSectionMap(sectionMap);
-
-    ExitOnErr(dbiBuilder.addDbgStream(
-        llvm::pdb::DbgHeaderType::SectionHdr,
-        {reinterpret_cast<uint8_t const*>(moduleInfo.sections.data()),
-         moduleInfo.sections.size() * sizeof(moduleInfo.sections[0])}));
-
-    const char* moduleName = "d:\\dummy.obj"; // Name doesn't actually matter, since there is no real object file.
+void AddLineInfo(llvm::pdb::PDBFileBuilder& builder, llvm::pdb::DbiStreamBuilder& dbiBuilder) {
+    // Name doesn't actually matter, since there is no real object file.
+    const string moduleName = R"(C:\Users\localhost\Documents\GitHub\PdbGen\PdbTest\x64\Debug\Main.obj)";
     auto& modiBuilder = ExitOnErr(dbiBuilder.addModuleInfo(moduleName));
     modiBuilder.setObjFileName(moduleName);
 
-    const char* filename = R"(C:\Users\localhost\Documents\GitHub\PdbGen\PDBTest\Main.cpp)";
+    const string filename = R"(C:\Users\localhost\Documents\GitHub\PdbGen\PdbTest\Main.cpp)";
 
     // Add files to module (presumably necessary to associate source code lines)
     for (auto file : {filename})
         ExitOnErr(dbiBuilder.addModuleSourceFile(modiBuilder, file));
+
 
     // WIP: How do I make symbols? What even are symbols?
     // S_BPREL16 and S_BPREL32 are how we name "Symbols RELative to the Base Pointer"
@@ -157,86 +127,239 @@ void GeneratePDB(const ModuleInfo& moduleInfo, const vector<cv::PublicSym32>& pu
     // Apparently, I want a subsection of a module.
     // cv::DebugSubsectionKind::Lines;
 
-    cv::StringsAndChecksums sac;
-    auto strings = make_shared<cv::DebugStringTableSubsection>();
+    auto strings = new cv::DebugStringTableSubsection(); // Intentional memory leak. Blah. This is also causing a heap corruption... somehow
     strings->insert(filename);
-    sac.setStrings(strings);
     builder.getStringTableBuilder().setStrings(*strings);
 
     auto checksums = make_shared<cv::DebugChecksumsSubsection>(*strings);
-    checksums->addChecksum(
-        filename,
-        cv::FileChecksumKind::MD5,
-        {0xB2, 0xF9, 0x3D, 0x5E, 0xFA, 0x94, 0xE6, 0x4E, 0x22, 0x3B, 0x81, 0x3C, 0x9D, 0xDD, 0x53, 0x06});
-    sac.setChecksums(checksums);
+    checksums->addChecksum(filename, cv::FileChecksumKind::MD5, MD5::HashFile(filename));
     modiBuilder.addDebugSubsection(checksums);
 
-    { // Per-function, I think.
+//    { // Foo
+//        auto debugSubsection = make_shared<cv::DebugLinesSubsection>(*checksums, *strings);
+//        debugSubsection->createBlock(filename);
+//        debugSubsection->setCodeSize(70); // Function length (Total instruction count, including ret)
+//        debugSubsection->setRelocationAddress(2, 0x6F0); // Offset from the program base (?)
+//        debugSubsection->setFlags(cv::LineFlags::LF_None);
+//
+//        debugSubsection->addLineInfo(0, cv::LineInfo(7, 7, true)); // Offset, Start, End, isStatement
+//        debugSubsection->addLineInfo(30, cv::LineInfo(15732480, 15732480, true)); // Offset, Start, End, isStatement
+//        debugSubsection->addLineInfo(42, cv::LineInfo(8, 8, true)); // Offset, Start, End, isStatement
+//        debugSubsection->addLineInfo(49, cv::LineInfo(9, 9, true)); // Offset, Start, End, isStatement
+//        debugSubsection->addLineInfo(57, cv::LineInfo(10, 10, true)); // Offset, Start, End, isStatement
+//        debugSubsection->addLineInfo(60, cv::LineInfo(11, 11, true)); // Offset, Start, End, isStatement
+//        modiBuilder.addDebugSubsection(debugSubsection);
+//    }
+//
+//    { // Bar
+//        auto debugSubsection = make_shared<cv::DebugLinesSubsection>(*checksums, *strings);
+//        debugSubsection->createBlock(filename);
+//        debugSubsection->setCodeSize(72); // Function length (Total instruction count, including ret)
+//        debugSubsection->setRelocationAddress(2, 0x750); // Offset from the program base (?)
+//        debugSubsection->setFlags(cv::LineFlags::LF_None);
+//
+//        debugSubsection->addLineInfo(0, cv::LineInfo(1, 1, true)); // Offset, Start, End, isStatement
+//        debugSubsection->addLineInfo(30, cv::LineInfo(15732480, 15732480, true)); // Offset, Start, End, isStatement
+//        debugSubsection->addLineInfo(40, cv::LineInfo(2, 2, true)); // Offset, Start, End, isStatement
+//        debugSubsection->addLineInfo(47, cv::LineInfo(3, 3, true)); // Offset, Start, End, isStatement
+//        debugSubsection->addLineInfo(56, cv::LineInfo(4, 4, true)); // Offset, Start, End, isStatement
+//        debugSubsection->addLineInfo(59, cv::LineInfo(5, 5, true)); // Offset, Start, End, isStatement
+//        modiBuilder.addDebugSubsection(debugSubsection);
+//    }
+
+    { // Main
         auto debugSubsection = make_shared<cv::DebugLinesSubsection>(*checksums, *strings);
         debugSubsection->createBlock(filename);
-        debugSubsection->setCodeSize(70); // Function length (Total instruction count, including ret)
-        debugSubsection->setRelocationAddress(2, 1776); // Offset from the program base (?)
+        debugSubsection->setCodeSize(88); // Function length (Total instruction count, including ret)
+        debugSubsection->setRelocationAddress(2, 1744); // Offset from the program base (?)
         debugSubsection->setFlags(cv::LineFlags::LF_None);
 
-        debugSubsection->addLineInfo(0x00, cv::LineInfo(7, 7, true)); // Offset, Start, End, isStatement
-        // debugSubsection->addLineInfo(0x12, cv::LineInfo(4, 4, false)); // Offset, Start, End, isStatement
-        // debugSubsection->addLineInfo(0x1A, cv::LineInfo(5, 5, false)); // Offset, Start, End, isStatement
-        // debugSubsection->addLineInfo(0x2A, cv::LineInfo(6, 6, false)); // Offset, Start, End, isStatement
-        // debugSubsection->addLineInfo(0x40, cv::LineInfo(7, 7, false)); // Offset, Start, End, isStatement
-        modiBuilder.addDebugSubsection(debugSubsection);
-    }
-    { // Per-function, I think.
-        auto debugSubsection = make_shared<cv::DebugLinesSubsection>(*checksums, *strings);
-        debugSubsection->createBlock(filename);
-        debugSubsection->setCodeSize(70); // Function length (Total instruction count, including ret)
-        debugSubsection->setRelocationAddress(2, 1872); // Offset from the program base (?)
-        debugSubsection->setFlags(cv::LineFlags::LF_None);
-
-        debugSubsection->addLineInfo(0x00, cv::LineInfo(1, 1, true)); // Offset, Start, End, isStatement
-        debugSubsection->addLineInfo(42, cv::LineInfo(2, 2, true)); // Offset, Start, End, isStatement
-        // debugSubsection->addLineInfo(0x1A, cv::LineInfo(5, 5, false)); // Offset, Start, End, isStatement
-        // debugSubsection->addLineInfo(0x2A, cv::LineInfo(6, 6, false)); // Offset, Start, End, isStatement
-        // debugSubsection->addLineInfo(0x40, cv::LineInfo(7, 7, false)); // Offset, Start, End, isStatement
+        debugSubsection->addLineInfo(0, cv::LineInfo(1, 1, true)); // Offset, Start, End, isStatement
+        debugSubsection->addLineInfo(28, cv::LineInfo(2, 2, true)); // Offset, Start, End, isStatement
+        debugSubsection->addLineInfo(35, cv::LineInfo(3, 3, true)); // Offset, Start, End, isStatement
+        debugSubsection->addLineInfo(43, cv::LineInfo(4, 4, true)); // Offset, Start, End, isStatement
+        debugSubsection->addLineInfo(51, cv::LineInfo(5, 5, true)); // Offset, Start, End, isStatement
         modiBuilder.addDebugSubsection(debugSubsection);
     }
 
+    {
+        // auto debugSubsection = make_shared<cv::DebugSymbolRVASubsection>();
+        // for (auto rva : { 0, 0, 0, 0, 0, 0, 0, 0, 135168, 0, 0, 135168, 
+        //                      71408, 0, 0, 0, 0, 0, 71504, 0, 0, 0, 0, 0, 
+        //                      71600, 0, 0, 0, 0, 0, 71616, 0, 0, 0, 0, 0, 
+        //                      71504, 71408, 71616, 71728, 71808, 71856, 
+        //                      71600, 71504, 71408, 71616, 110768, 0, 0, 
+        //                      110768, 124928, 0, 0, 124928, 110788, 0, 0, 
+        //                      110788, 124940, 0, 0, 124940, 110808, 0, 0, 
+        //                      110808, 124952, 0, 0, 124952, 109408, 0, 0, 
+        //                      109408, 110224, 0, 0, 110224, 0, 0, 0, 0, 
+        //                      0, 0 }) {
+        //     debugSubsection->addRVA(rva);
+        // }
+        // modiBuilder.addDebugSubsection(debugSubsection);
+    }
 
+    // cv::ObjNameSym();
+    // auto sym = cv::CVSymbol();
+    // modiBuilder.addSymbol(sym);
+    // cv::RecordPrefix Prefix{uint16_t(cv::SymbolKind::S_FASTLINK)};
+    // cv::CVSymbol Result(&Prefix, sizeof(Prefix));
+    // Result.RecordData = {1, 2, 3, 4, 5, 6, 7};
+    // modiBuilder.addSymbol(Result);
 
-    auto& gsiBuilder = builder.getGsiBuilder();
-    for (const cv::PublicSym32& pub : publics)
-        gsiBuilder.addPublicSymbol(pub);
+    {
+        auto sym = cv::ObjNameSym();
+        sym.Signature = 0;
+        sym.Name = moduleName;
+        AddSymbol(modiBuilder, sym);
+    }
+    {
+        auto cs = cv::Compile3Sym();
+        cs.Flags = cv::CompileSym3Flags::EC | cv::CompileSym3Flags::SecurityChecks | cv::CompileSym3Flags::HotPatch | cv::CompileSym3Flags::Sdl;
+        cs.Machine = cv::CPUType::X64; // Assume. This may not matter?
+        // The Frontend version can be whatever.
+        cs.VersionFrontendBuild = 19;
+        cs.VersionFrontendMajor = 23;
+        cs.VersionFrontendMinor = 28016;
+        cs.VersionFrontendQFE = 4;
 
-    auto& tpiBuilder = builder.getTpiBuilder();
-    tpiBuilder.setVersionHeader(llvm::pdb::PdbTpiV80);
-    // This is where type information goes, I think. Idk.
-    // cv::CVType type;
-    // tpiBuilder.addTypeRecord(type.RecordData, llvm::None);
+        // The backend version must be a valid MSVC version. See LLD documentation:
+        // https://github.com/llvm-mirror/lld/blob/master/COFF/PDB.cpp#L1395
+        cs.VersionBackendMajor = 19;
+        cs.VersionBackendMinor = 23;
+        cs.VersionBackendBuild = 28016;
+        cs.VersionBackendQFE = 4;
+        cs.Version = "Microsoft (R) Optimizing Compiler";
 
-
-    auto& ipiBuilder = builder.getIpiBuilder();
-    ipiBuilder.setVersionHeader(llvm::pdb::PdbTpiV80);
-
-    dbiBuilder.setPublicsStreamIndex(gsiBuilder.getPublicsStreamIndex());
-    // dbiBuilder.setGlobalsStreamIndex(gsiBuilder.getGlobalsStreamIndex());
-    // dbiBuilder.setSymbolRecordStreamIndex(gsiBuilder.getRecordStreamIdx());
-
-    cv::GUID ignoredOutGuid;
-    ExitOnErr(builder.commit(outputFileName, &ignoredOutGuid));
+        // cs.setLanguage(cv::SourceLanguage::Link);
+        AddSymbol(modiBuilder, cs);
+    }
+    {
+        auto sym = cv::UsingNamespaceSym(cv::SymbolRecordKind::UsingNamespaceSym);
+        sym.Name = "std";
+        AddSymbol(modiBuilder, sym);
+    }
+    {
+        auto sym = cv::BuildInfoSym(cv::SymbolRecordKind::BuildInfoSym);
+        sym.BuildId = cv::TypeIndex(cv::TypeIndex::FirstNonSimpleIndex + 10);
+        AddSymbol(modiBuilder, sym);
+    }
+    {
+        auto sym = cv::ProcSym(cv::SymbolRecordKind::GlobalProcSym);
+        sym.Parent = 0;
+        sym.End = 252;
+        sym.Next = 0;
+        sym.CodeSize = 88;
+        sym.DbgStart = 28;
+        sym.DbgEnd = 78;
+        sym.FunctionType = cv::TypeIndex(cv::TypeIndex::FirstNonSimpleIndex + 1);
+        sym.CodeOffset = 1744;
+        sym.Segment = 2;
+        sym.Flags = cv::ProcSymFlags::None;
+        sym.Name = "main";
+        AddSymbol(modiBuilder, sym);
+    }
+    {
+        auto sym = cv::FrameProcSym(cv::SymbolRecordKind::FrameProcSym);
+        sym.TotalFrameBytes = 232;
+        sym.PaddingFrameBytes = 192;
+        sym.OffsetToPadding = 40;
+        sym.BytesOfCalleeSavedRegisters = 0;
+        sym.OffsetOfExceptionHandler = 0;
+        sym.SectionIdOfExceptionHandler = 0;
+        sym.Flags = cv::FrameProcedureOptions::StrictSecurityChecks | cv::FrameProcedureOptions::OptimizedForSpeed;
+        AddSymbol(modiBuilder, sym);
+    }
+    {
+        auto sym = cv::RegRelativeSym(cv::SymbolRecordKind::RegRelativeSym);
+        sym.Offset = 4;
+        sym.Type = cv::TypeIndex(116);
+        sym.Register = cv::RegisterId::RBP;
+        sym.Name = "a";
+        AddSymbol(modiBuilder, sym);
+    }
+    {
+        auto sym = cv::ScopeEndSym(cv::SymbolRecordKind::ScopeEndSym);
+        AddSymbol(modiBuilder, sym);
+    }
 }
 
-} // namespace
+void GeneratePDB(const ModuleInfo& moduleInfo, const vector<cv::PublicSym32>& publics, char const* outputFileName) {
+    using namespace llvm::pdb;
 
-int main(int argc, char** argv)
-{
-    ModuleInfo moduleInfo = ReadModuleInfo("C:/Users/localhost/Documents/GitHub/PdbGen/PdbGen/PDBTest.exe");
+    auto builder = new PDBFileBuilder(llvmAllocator); // @Leak
+    ExitOnErr(builder->initialize(4096)); // Blocksize
 
+    // Add each of the reserved streams. We might not put any data in them, but at least they have to be present.
+    for (uint32_t i = 0; i < kSpecialStreamCount; ++i)
+        ExitOnErr(builder->getMsfBuilder().addStream(0));
+
+    {
+        InfoStreamBuilder& infoBuilder = builder->getInfoBuilder();
+        infoBuilder.setAge(moduleInfo.age);
+        infoBuilder.setGuid(moduleInfo.guid);
+        infoBuilder.setSignature(moduleInfo.signature);
+        infoBuilder.setVersion(PdbImplVC70);
+        infoBuilder.addFeature(PdbRaw_FeatureSig::VC140);
+    }
+
+    DbiStreamBuilder& dbiBuilder = builder->getDbiBuilder();
+    dbiBuilder.setVersionHeader(PdbDbiV70);
+    dbiBuilder.setAge(moduleInfo.age);
+    dbiBuilder.setBuildNumber(35584);
+    dbiBuilder.setPdbDllVersion(28106);
+    dbiBuilder.setPdbDllRbld(4);
+    dbiBuilder.setFlags(1);
+    dbiBuilder.setMachineType(moduleInfo.is64Bit ? PDB_Machine::Amd64 : PDB_Machine::x86);
+
+    {
+        const vector<SecMapEntry> sectionMap = DbiStreamBuilder::createSectionMap(moduleInfo.sections);
+        dbiBuilder.setSectionMap(sectionMap);
+    }
+
+    ExitOnErr(dbiBuilder.addDbgStream(
+        DbgHeaderType::SectionHdr,
+        {reinterpret_cast<uint8_t const*>(moduleInfo.sections.data()),
+         moduleInfo.sections.size() * sizeof(moduleInfo.sections[0])}));
+
+    // AddLineInfo(*builder, dbiBuilder);
+
+    {
+        GSIStreamBuilder& gsiBuilder = builder->getGsiBuilder();
+        for (const cv::PublicSym32& pub : publics)
+            gsiBuilder.addPublicSymbol(pub);
+
+        dbiBuilder.setPublicsStreamIndex(gsiBuilder.getPublicsStreamIndex());
+        // dbiBuilder.setGlobalsStreamIndex(gsiBuilder.getGlobalsStreamIndex());
+        // dbiBuilder.setSymbolRecordStreamIndex(gsiBuilder.getRecordStreamIdx());
+    }
+
+    {
+        TpiStreamBuilder& tpiBuilder = builder->getTpiBuilder();
+        tpiBuilder.setVersionHeader(PdbTpiV80);
+        // This is where type information goes, I think. Idk.
+        // cv::CVType type;
+        // tpiBuilder.addTypeRecord(type.RecordData, llvm::None);
+    }
+
+    {
+        TpiStreamBuilder& ipiBuilder = builder->getIpiBuilder();
+        ipiBuilder.setVersionHeader(PdbTpiV80);
+    }
+
+    cv::GUID ignoredOutGuid;
+    ExitOnErr(builder->commit(outputFileName, &ignoredOutGuid));
+}
+
+int main(int argc, char** argv) {
+    ModuleInfo moduleInfo = ReadModuleInfo("C:/Users/localhost/Documents/GitHub/PdbGen/PdbTest/x64/Debug/PDBTest.exe");
+
+    // 0x4F1000
     vector<cv::PublicSym32> publics = {
-        CreatePublicSymbol("foo", 0x0),
-        CreatePublicSymbol("bar", 0x20),
-        CreatePublicSymbol("main", 0x40)
+        CreatePublicSymbol("main", 1744)
     };
-    sort(publics.begin(), publics.end(), [](const auto& l, const auto& r) { return l.Name < r.Name; });
+    //sort(publics.begin(), publics.end(), [](const auto& l, const auto& r) { return l.Name < r.Name; });
 
-    GeneratePDB(moduleInfo, publics, "C:/Users/localhost/Documents/GitHub/PdbGen/PdbGen/PDBTest.pdb");
+    GeneratePDB(moduleInfo, publics, "C:/Users/localhost/Documents/GitHub/PdbGen/Generated/PdbTest.pdb");
     return 0;
 }

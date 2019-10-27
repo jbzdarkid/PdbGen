@@ -1,17 +1,8 @@
-int foo() {
+int main() {
     int a = 1;
     a++;
+    a *= 2;
+    a -= 3;
+    a /= 4;
     return a;
-}
-
-int bar() {
-    int b = 2;
-    b--;
-    return b;
-}
-
-
-int main() {
-    foo();
-    bar();
 }
