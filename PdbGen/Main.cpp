@@ -88,6 +88,14 @@ cv::PublicSym32 CreatePublicSymbol(const char* name, int32_t offset) {
     return symbol;
 }
 
+llvm::BumpPtrAllocator llvmAllocator;
+
+template <typename SymType>
+void AddSymbol(llvm::pdb::DbiModuleDescriptorBuilder& modiBuilder, SymType& sym) {
+    cv::CVSymbol cvSym = cv::SymbolSerializer::writeOneSymbol(sym, llvmAllocator, cv::CodeViewContainer::Pdb);
+    modiBuilder.addSymbol(cvSym);
+}
+
 void GeneratePDB(ModuleInfo const& moduleInfo, const vector<cv::PublicSym32>& publics, char const* outputFileName)
 {
     // Name doesn't actually matter, since there is no real object file.
@@ -95,8 +103,7 @@ void GeneratePDB(ModuleInfo const& moduleInfo, const vector<cv::PublicSym32>& pu
     // This one might matter. Unsure.
     const char* filename = R"(C:\Users\localhost\Documents\GitHub\PdbGen\Generated\Main.cpp)";
 
-    llvm::BumpPtrAllocator allocator;
-    PDBFileBuilder builder(allocator);
+    PDBFileBuilder builder(llvmAllocator);
     ExitOnErr(builder.initialize(4096)); // Blocksize
 
     // Add each of the reserved streams. We may not put any data in them, but they at least have to be present.
@@ -125,30 +132,109 @@ void GeneratePDB(ModuleInfo const& moduleInfo, const vector<cv::PublicSym32>& pu
     ExitOnErr(dbiBuilder.addModuleSourceFile(modiBuilder, filename));
 
     cv::DebugStringTableSubsection strings;
-    builder.getStringTableBuilder().setStrings(strings);
-
     strings.insert("main"); // Presumably unnecessary; it looks like checksums / etc will auto-add strings when needed.
+    strings.insert(filename);
+    strings.insert(moduleName);
+    builder.getStringTableBuilder().setStrings(strings); // Must be after inserting strings. Should probably assert that this isn't resized at the end.
 
-//     auto checksums = make_shared<cv::DebugChecksumsSubsection>(strings);
-//     checksums->addChecksum(filename, cv::FileChecksumKind::MD5, MD5::HashFile(filename));
-//     modiBuilder.addDebugSubsection(checksums);
+    auto checksums = make_shared<cv::DebugChecksumsSubsection>(strings);
+    checksums->addChecksum(filename, cv::FileChecksumKind::MD5, MD5::HashFile(filename));
+    modiBuilder.addDebugSubsection(checksums);
 
-       // Main
-//     auto debugSubsection = make_shared<cv::DebugLinesSubsection>(*checksums, strings);
-//     debugSubsection->createBlock(filename);
-//     debugSubsection->setCodeSize(88); // Function length (Total instruction count, including ret)
-//     debugSubsection->setRelocationAddress(2, 1744); // Offset from the program base (?)
-//     debugSubsection->setFlags(cv::LineFlags::LF_None);
-// 
-//     debugSubsection->addLineInfo(0, cv::LineInfo(1, 1, true)); // Offset, Start, End, isStatement
-//     debugSubsection->addLineInfo(30, cv::LineInfo(2, 2, true)); // Offset, Start, End, isStatement
-//     debugSubsection->addLineInfo(37, cv::LineInfo(3, 3, true)); // Offset, Start, End, isStatement
-//     debugSubsection->addLineInfo(46, cv::LineInfo(4, 4, true)); // Offset, Start, End, isStatement
-//     debugSubsection->addLineInfo(54, cv::LineInfo(5, 5, true)); // Offset, Start, End, isStatement
-//     debugSubsection->addLineInfo(63, cv::LineInfo(6, 6, true)); // Offset, Start, End, isStatement
-//     debugSubsection->addLineInfo(78, cv::LineInfo(7, 7, true)); // Offset, Start, End, isStatement
-//     debugSubsection->addLineInfo(81, cv::LineInfo(8, 8, true)); // Offset, Start, End, isStatement
-//     modiBuilder.addDebugSubsection(debugSubsection);
+    // main func
+    auto debugSubsection = make_shared<cv::DebugLinesSubsection>(*checksums, strings);
+    debugSubsection->createBlock(filename);
+    debugSubsection->setCodeSize(88); // Function length (Total instruction count, including ret)
+    debugSubsection->setRelocationAddress(2, 1744); // Offset from the program base (?)
+    debugSubsection->setFlags(cv::LineFlags::LF_None);
+
+    debugSubsection->addLineInfo(0, cv::LineInfo(1, 1, true)); // Offset, Start, End, isStatement
+    debugSubsection->addLineInfo(30, cv::LineInfo(2, 2, true)); // Offset, Start, End, isStatement
+    debugSubsection->addLineInfo(37, cv::LineInfo(3, 3, true)); // Offset, Start, End, isStatement
+    debugSubsection->addLineInfo(46, cv::LineInfo(4, 4, true)); // Offset, Start, End, isStatement
+    debugSubsection->addLineInfo(54, cv::LineInfo(5, 5, true)); // Offset, Start, End, isStatement
+    debugSubsection->addLineInfo(63, cv::LineInfo(6, 6, true)); // Offset, Start, End, isStatement
+    debugSubsection->addLineInfo(78, cv::LineInfo(7, 7, true)); // Offset, Start, End, isStatement
+    debugSubsection->addLineInfo(81, cv::LineInfo(8, 8, true)); // Offset, Start, End, isStatement
+    modiBuilder.addDebugSubsection(debugSubsection);
+
+    /*
+    {
+        auto sym = cv::ObjNameSym();
+        sym.Signature = 0;
+        sym.Name = moduleName;
+        AddSymbol(modiBuilder, sym);
+    }
+    {
+        auto cs = cv::Compile3Sym();
+        cs.Flags = cv::CompileSym3Flags::EC | cv::CompileSym3Flags::SecurityChecks | cv::CompileSym3Flags::HotPatch | cv::CompileSym3Flags::Sdl;
+        cs.Machine = cv::CPUType::X64; // Assume. This may not matter?
+        // The Frontend version can be whatever.
+        cs.VersionFrontendBuild = 19;
+        cs.VersionFrontendMajor = 23;
+        cs.VersionFrontendMinor = 28016;
+        cs.VersionFrontendQFE = 4;
+
+        // The backend version must be a valid MSVC version. See LLD documentation:
+        // https://github.com/llvm-mirror/lld/blob/master/COFF/PDB.cpp#L1395
+        cs.VersionBackendMajor = 19;
+        cs.VersionBackendMinor = 23;
+        cs.VersionBackendBuild = 28016;
+        cs.VersionBackendQFE = 4;
+        cs.Version = "Microsoft (R) Optimizing Compiler";
+
+        // cs.setLanguage(cv::SourceLanguage::Link);
+        AddSymbol(modiBuilder, cs);
+    }
+    {
+        auto sym = cv::UsingNamespaceSym(cv::SymbolRecordKind::UsingNamespaceSym);
+        sym.Name = "std";
+        AddSymbol(modiBuilder, sym);
+    }
+    {
+        auto sym = cv::BuildInfoSym(cv::SymbolRecordKind::BuildInfoSym);
+        sym.BuildId = cv::TypeIndex(cv::TypeIndex::FirstNonSimpleIndex + 10);
+        AddSymbol(modiBuilder, sym);
+    }
+    {
+        auto sym = cv::ProcSym(cv::SymbolRecordKind::GlobalProcSym);
+        sym.Parent = 0;
+        sym.End = 252;
+        sym.Next = 0;
+        sym.CodeSize = 88;
+        sym.DbgStart = 28;
+        sym.DbgEnd = 78;
+        sym.FunctionType = cv::TypeIndex(cv::TypeIndex::FirstNonSimpleIndex + 1);
+        sym.CodeOffset = 1744;
+        sym.Segment = 2;
+        sym.Flags = cv::ProcSymFlags::None;
+        sym.Name = "main";
+        AddSymbol(modiBuilder, sym);
+    }
+    {
+        auto sym = cv::FrameProcSym(cv::SymbolRecordKind::FrameProcSym);
+        sym.TotalFrameBytes = 232;
+        sym.PaddingFrameBytes = 192;
+        sym.OffsetToPadding = 40;
+        sym.BytesOfCalleeSavedRegisters = 0;
+        sym.OffsetOfExceptionHandler = 0;
+        sym.SectionIdOfExceptionHandler = 0;
+        sym.Flags = cv::FrameProcedureOptions::StrictSecurityChecks | cv::FrameProcedureOptions::OptimizedForSpeed;
+        AddSymbol(modiBuilder, sym);
+    }
+    {
+        auto sym = cv::RegRelativeSym(cv::SymbolRecordKind::RegRelativeSym);
+        sym.Offset = 4;
+        sym.Type = cv::TypeIndex(116);
+        sym.Register = cv::RegisterId::RBP;
+        sym.Name = "a";
+        AddSymbol(modiBuilder, sym);
+    }
+    {
+        auto sym = cv::ScopeEndSym(cv::SymbolRecordKind::ScopeEndSym);
+        AddSymbol(modiBuilder, sym);
+    }
+    */
 
     const vector<SecMapEntry> sectionMap = DbiStreamBuilder::createSectionMap(moduleInfo.sections);
     dbiBuilder.setSectionMap(sectionMap);
@@ -176,9 +262,8 @@ void GeneratePDB(ModuleInfo const& moduleInfo, const vector<cv::PublicSym32>& pu
     exit(0);
 }
 
-int main(int argc, char** argv)
-{
-    ModuleInfo moduleInfo = ReadModuleInfo("C:/Users/localhost/Documents/GitHub/PdbGen/PdbTest/Debug/PDBTest.exe");
+int main(int argc, char** argv) {
+    ModuleInfo moduleInfo = ReadModuleInfo("C:/Users/localhost/Documents/GitHub/PdbGen/PdbTest/Debug/PdbTest.exe");
 
     // 0x4F1000
     vector<cv::PublicSym32> publics = {

@@ -3,28 +3,31 @@ MSF:
   SuperBlock:
     BlockSize:       4096
     FreeBlockMap:    2
-    NumBlocks:       14
-    NumDirectoryBytes: 84
+    NumBlocks:       15
+    NumDirectoryBytes: 92
     Unknown1:        0
     BlockMapAddr:    3
   NumDirectoryBlocks: 1
-  DirectoryBlocks: [ 13 ]
-  NumStreams:      11
-  FileSize:        57344
-StreamSizes:     [ 0, 93, 56, 463, 56, 0, 532, 576, 20, 320, 34 ]
+  DirectoryBlocks: [ 14 ]
+  NumStreams:      12
+  FileSize:        61440
+StreamSizes:     [ 0, 93, 56, 463, 56, 0, 532, 576, 20, 320, 136, 129 ]
 StreamMap:
   - Stream:          [  ]
-  - Stream:          [ 12 ]
+  - Stream:          [ 13 ]
   - Stream:          [ 7 ]
-  - Stream:          [ 9 ]
-  - Stream:          [ 11 ]
+  - Stream:          [ 10 ]
+  - Stream:          [ 12 ]
   - Stream:          [  ]
   - Stream:          [ 4 ]
   - Stream:          [ 5 ]
   - Stream:          [ 6 ]
   - Stream:          [ 8 ]
-  - Stream:          [ 10 ]
+  - Stream:          [ 9 ]
+  - Stream:          [ 11 ]
 StringTable:
+  - 'd:\dummy.obj'
+  - 'C:\Users\localhost\Documents\GitHub\PdbGen\Generated\Main.cpp'
   - main
 PdbStream:
   Age:             1
@@ -45,6 +48,56 @@ DbiStream:
       ObjFile:         'd:\dummy.obj'
       SourceFiles:
         - 'C:\Users\localhost\Documents\GitHub\PdbGen\Generated\Main.cpp'
+      Subsections:
+        - !FileChecksums
+          Checksums:
+            - FileName:        'C:\Users\localhost\Documents\GitHub\PdbGen\Generated\Main.cpp'
+              Kind:            MD5
+              Checksum:        30426B9597D17DC8F815957CC912EC95
+        - !Lines
+          CodeSize:        88
+          Flags:           [  ]
+          RelocOffset:     1744
+          RelocSegment:    2
+          Blocks:
+            - FileName:        'C:\Users\localhost\Documents\GitHub\PdbGen\Generated\Main.cpp'
+              Lines:
+                - Offset:          0
+                  LineStart:       1
+                  IsStatement:     true
+                  EndDelta:        0
+                - Offset:          30
+                  LineStart:       2
+                  IsStatement:     true
+                  EndDelta:        0
+                - Offset:          37
+                  LineStart:       3
+                  IsStatement:     true
+                  EndDelta:        0
+                - Offset:          46
+                  LineStart:       4
+                  IsStatement:     true
+                  EndDelta:        0
+                - Offset:          54
+                  LineStart:       5
+                  IsStatement:     true
+                  EndDelta:        0
+                - Offset:          63
+                  LineStart:       6
+                  IsStatement:     true
+                  EndDelta:        0
+                - Offset:          78
+                  LineStart:       7
+                  IsStatement:     true
+                  EndDelta:        0
+                - Offset:          81
+                  LineStart:       8
+                  IsStatement:     true
+                  EndDelta:        0
+              Columns:         []
+      Modi:
+        Signature:       4
+        Records:         []
 TpiStream:
   Version:         VC80
   Records:         []
