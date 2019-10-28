@@ -2,7 +2,7 @@ import subprocess
 
 root = 'C:/Users/localhost/Documents/GitHub/'
 exe = root + 'llvm-project/build/Debug/bin/llvm-pdbutil.exe'
-real = root + 'PdbGen/PdbTest/Debug/_PDBTest.pdb'
+real = root + 'PdbGen/PdbTest/Debug/_PdbTest.pdb'
 fake = root + 'PdbGen/Generated/PDBTest.pdb'
 
 real_out = subprocess.run([exe, 'pdb2yaml', '--all', real], capture_output=True)
