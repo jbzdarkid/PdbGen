@@ -6,6 +6,7 @@
 #pragma warning(disable : 4996)
 #pragma warning(disable : 4624)
 #include <llvm/DebugInfo/CodeView/StringsAndChecksums.h>
+#include <llvm/DebugInfo/CodeView/SymbolSerializer.h>
 #include <llvm/DebugInfo/MSF/MSFBuilder.h>
 #include <llvm/DebugInfo/PDB/Native/DbiModuleDescriptorBuilder.h>
 #include <llvm/DebugInfo/PDB/Native/DbiStreamBuilder.h>
@@ -158,7 +159,6 @@ void GeneratePDB(ModuleInfo const& moduleInfo, const vector<cv::PublicSym32>& pu
     debugSubsection->addLineInfo(81, cv::LineInfo(8, 8, true)); // Offset, Start, End, isStatement
     modiBuilder.addDebugSubsection(debugSubsection);
 
-    /*
     {
         auto sym = cv::ObjNameSym();
         sym.Signature = 0;
@@ -234,7 +234,6 @@ void GeneratePDB(ModuleInfo const& moduleInfo, const vector<cv::PublicSym32>& pu
         auto sym = cv::ScopeEndSym(cv::SymbolRecordKind::ScopeEndSym);
         AddSymbol(modiBuilder, sym);
     }
-    */
 
     const vector<SecMapEntry> sectionMap = DbiStreamBuilder::createSectionMap(moduleInfo.sections);
     dbiBuilder.setSectionMap(sectionMap);
