@@ -3,36 +3,37 @@ MSF:
   SuperBlock:
     BlockSize:       4096
     FreeBlockMap:    2
-    NumBlocks:       15
-    NumDirectoryBytes: 92
+    NumBlocks:       16
+    NumDirectoryBytes: 100
     Unknown1:        0
     BlockMapAddr:    3
   NumDirectoryBlocks: 1
-  DirectoryBlocks: [ 14 ]
-  NumStreams:      12
-  FileSize:        61440
-StreamSizes:     [ 0, 93, 56, 463, 56, 0, 532, 576, 20, 320, 136, 129 ]
+  DirectoryBlocks: [ 15 ]
+  NumStreams:      13
+  FileSize:        65536
+StreamSizes:     [ 0, 93, 80, 363, 56, 0, 532, 576, 20, 8, 120, 332, 129 ]
 StreamMap:
   - Stream:          [  ]
-  - Stream:          [ 13 ]
+  - Stream:          [ 14 ]
   - Stream:          [ 7 ]
-  - Stream:          [ 10 ]
-  - Stream:          [ 12 ]
+  - Stream:          [ 11 ]
+  - Stream:          [ 13 ]
   - Stream:          [  ]
   - Stream:          [ 4 ]
   - Stream:          [ 5 ]
   - Stream:          [ 6 ]
   - Stream:          [ 8 ]
   - Stream:          [ 9 ]
-  - Stream:          [ 11 ]
+  - Stream:          [ 10 ]
+  - Stream:          [ 12 ]
 StringTable:
   - 'd:\dummy.obj'
   - 'C:\Users\localhost\Documents\GitHub\PdbGen\Generated\Main.cpp'
   - main
 PdbStream:
   Age:             1
-  Guid:            '{976B796A-4CD0-AE48-A188-D3A686F30AF4}'
-  Signature:       1572203237
+  Guid:            '{6608EFF5-B4E0-B243-BE08-3CD317B3499F}'
+  Signature:       1572243216
   Features:        [ VC140 ]
   Version:         VC70
 DbiStream:
@@ -97,10 +98,72 @@ DbiStream:
               Columns:         []
       Modi:
         Signature:       4
-        Records:         []
+        Records:
+          - Kind:            S_OBJNAME
+            ObjNameSym:
+              Signature:       0
+              ObjectName:      'd:\dummy.obj'
+          - Kind:            S_COMPILE3
+            Compile3Sym:
+              Flags:           [  ]
+              Machine:         Pentium3
+              FrontendMajor:   19
+              FrontendMinor:   28016
+              FrontendBuild:   23
+              FrontendQFE:     4
+              BackendMajor:    19
+              BackendMinor:    23
+              BackendBuild:    28016
+              BackendQFE:      4
+              Version:         'Microsoft (R) Optimizing Compiler'
+          - Kind:            S_UNAMESPACE
+            UsingNamespaceSym:
+              Namespace:       std
+          - Kind:            S_GPROC32
+            ProcSym:
+              PtrParent:       0
+              PtrEnd:          240
+              PtrNext:         0
+              CodeSize:        59
+              DbgStart:        4
+              DbgEnd:          55
+              FunctionType:    4097
+              Offset:          16
+              Segment:         1
+              Flags:           [ HasFP ]
+              DisplayName:     main
+          - Kind:            S_FRAMEPROC
+            FrameProcSym:
+              TotalFrameBytes: 4
+              PaddingFrameBytes: 0
+              OffsetToPadding: 0
+              BytesOfCalleeSavedRegisters: 0
+              OffsetOfExceptionHandler: 0
+              SectionIdOfExceptionHandler: 0
+              Flags:           [ AsynchronousExceptionHandling, OptimizedForSpeed ]
+          - Kind:            S_BPREL32
+            BPRelativeSym:
+              Offset:          -4
+              Type:            116
+              VarName:         a
+          - Kind:            S_END
+            ScopeEndSym:     {}
+          - Kind:            S_BUILDINFO
+            BuildInfoSym:
+              BuildId:         4105
 TpiStream:
   Version:         VC80
-  Records:         []
+  Records:
+    - Kind:            LF_ARGLIST
+      ArgList:
+        ArgIndices:      [  ]
+    - Kind:            LF_PROCEDURE
+      Procedure:
+        ReturnType:      116
+        CallConv:        NearC
+        Options:         [ None ]
+        ParameterCount:  0
+        ArgumentList:    4096
 IpiStream:
   Version:         VC80
   Records:         []
@@ -109,7 +172,7 @@ PublicsStream:
     - Kind:            S_PUB32
       PublicSym32:
         Flags:           [ Function ]
-        Offset:          1712
-        Segment:         2
-        Name:            main
+        Offset:          16
+        Segment:         1
+        Name:            _main
 ...

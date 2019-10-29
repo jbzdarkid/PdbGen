@@ -7,6 +7,7 @@
 #pragma warning(disable : 4624)
 #include <llvm/DebugInfo/CodeView/StringsAndChecksums.h>
 #include <llvm/DebugInfo/CodeView/SymbolSerializer.h>
+#include <llvm/DebugInfo/CodeView/AppendingTypeTableBuilder.h>
 #include <llvm/DebugInfo/MSF/MSFBuilder.h>
 #include <llvm/DebugInfo/PDB/Native/DbiModuleDescriptorBuilder.h>
 #include <llvm/DebugInfo/PDB/Native/DbiStreamBuilder.h>
@@ -16,6 +17,9 @@
 #include <llvm/DebugInfo/PDB/Native/TpiStreamBuilder.h>
 #include <llvm/Object/Binary.h>
 #include <llvm/Object/COFF.h>
+
+#include <llvm/ObjectYAML/CodeViewYAMLTypes.h>
+
 #pragma warning(pop)
 
 #include "MD5.h"
@@ -84,7 +88,7 @@ cv::PublicSym32 CreatePublicSymbol(const char* name, int32_t offset) {
     PublicSym32 symbol(SymbolRecordKind::PublicSym32);
     symbol.Flags = PublicSymFlags::Function;
     symbol.Offset = offset;
-    symbol.Segment = 2;
+    symbol.Segment = 1;
     symbol.Name = name;
     return symbol;
 }
@@ -167,11 +171,11 @@ void GeneratePDB(ModuleInfo const& moduleInfo, const vector<cv::PublicSym32>& pu
     }
     {
         auto cs = cv::Compile3Sym();
-        cs.Flags = cv::CompileSym3Flags::EC | cv::CompileSym3Flags::SecurityChecks | cv::CompileSym3Flags::HotPatch | cv::CompileSym3Flags::Sdl;
-        cs.Machine = cv::CPUType::X64; // Assume. This may not matter?
+        cs.Flags = cv::CompileSym3Flags::None;
+        cs.Machine = cv::CPUType::Pentium3; // Assume. This may not matter?
         // The Frontend version can be whatever.
-        cs.VersionFrontendBuild = 19;
-        cs.VersionFrontendMajor = 23;
+        cs.VersionFrontendMajor = 19;
+        cs.VersionFrontendBuild = 23;
         cs.VersionFrontendMinor = 28016;
         cs.VersionFrontendQFE = 4;
 
@@ -192,46 +196,45 @@ void GeneratePDB(ModuleInfo const& moduleInfo, const vector<cv::PublicSym32>& pu
         AddSymbol(modiBuilder, sym);
     }
     {
-        auto sym = cv::BuildInfoSym(cv::SymbolRecordKind::BuildInfoSym);
-        sym.BuildId = cv::TypeIndex(cv::TypeIndex::FirstNonSimpleIndex + 10);
-        AddSymbol(modiBuilder, sym);
-    }
-    {
         auto sym = cv::ProcSym(cv::SymbolRecordKind::GlobalProcSym);
         sym.Parent = 0;
-        sym.End = 252;
+        sym.End = 240;
         sym.Next = 0;
-        sym.CodeSize = 88;
-        sym.DbgStart = 28;
-        sym.DbgEnd = 78;
+        sym.CodeSize = 59;
+        sym.DbgStart = 4;
+        sym.DbgEnd = 55;
         sym.FunctionType = cv::TypeIndex(cv::TypeIndex::FirstNonSimpleIndex + 1);
-        sym.CodeOffset = 1744;
-        sym.Segment = 2;
-        sym.Flags = cv::ProcSymFlags::None;
+        sym.CodeOffset = 16;
+        sym.Segment = 1;
+        sym.Flags = cv::ProcSymFlags::HasFP;
         sym.Name = "main";
         AddSymbol(modiBuilder, sym);
     }
     {
         auto sym = cv::FrameProcSym(cv::SymbolRecordKind::FrameProcSym);
-        sym.TotalFrameBytes = 232;
-        sym.PaddingFrameBytes = 192;
-        sym.OffsetToPadding = 40;
+        sym.TotalFrameBytes = 4;
+        sym.PaddingFrameBytes = 0;
+        sym.OffsetToPadding = 0;
         sym.BytesOfCalleeSavedRegisters = 0;
         sym.OffsetOfExceptionHandler = 0;
         sym.SectionIdOfExceptionHandler = 0;
-        sym.Flags = cv::FrameProcedureOptions::StrictSecurityChecks | cv::FrameProcedureOptions::OptimizedForSpeed;
+        sym.Flags = cv::FrameProcedureOptions::AsynchronousExceptionHandling | cv::FrameProcedureOptions::OptimizedForSpeed;
         AddSymbol(modiBuilder, sym);
     }
     {
-        auto sym = cv::RegRelativeSym(cv::SymbolRecordKind::RegRelativeSym);
-        sym.Offset = 4;
+        auto sym = cv::BPRelativeSym(cv::SymbolRecordKind::BPRelativeSym);
+        sym.Offset = -4;
         sym.Type = cv::TypeIndex(116);
-        sym.Register = cv::RegisterId::RBP;
         sym.Name = "a";
         AddSymbol(modiBuilder, sym);
     }
     {
         auto sym = cv::ScopeEndSym(cv::SymbolRecordKind::ScopeEndSym);
+        AddSymbol(modiBuilder, sym);
+    }
+    {
+        auto sym = cv::BuildInfoSym(cv::SymbolRecordKind::BuildInfoSym);
+        sym.BuildId = cv::TypeIndex(cv::TypeIndex::FirstNonSimpleIndex + 9);
         AddSymbol(modiBuilder, sym);
     }
 
@@ -253,12 +256,29 @@ void GeneratePDB(ModuleInfo const& moduleInfo, const vector<cv::PublicSym32>& pu
     TpiStreamBuilder& tpiBuilder = builder.getTpiBuilder();
     tpiBuilder.setVersionHeader(PdbTpiV80);
 
+    cv::AppendingTypeTableBuilder attb(llvmAllocator);
+    {
+        cv::ArgListRecord record(cv::TypeRecordKind::ArgList);
+        record.ArgIndices = {};
+        tpiBuilder.addTypeRecord(attb.getType(attb.writeLeafType(record)).RecordData, llvm::None);
+    }
+    {
+        cv::ProcedureRecord record(cv::TypeRecordKind::Procedure);
+        record.ReturnType = cv::TypeIndex(116);
+        record.CallConv = cv::CallingConvention::NearC;
+        record.Options = cv::FunctionOptions::None;
+        record.ParameterCount = 0;
+        record.ArgumentList = cv::TypeIndex(cv::TypeIndex::FirstNonSimpleIndex);
+        tpiBuilder.addTypeRecord(attb.getType(attb.writeLeafType(record)).RecordData, llvm::None);
+    }
+
     TpiStreamBuilder& ipiBuilder = builder.getIpiBuilder();
     ipiBuilder.setVersionHeader(PdbTpiV80);
 
     cv::GUID ignoredOutGuid;
+    // Also commits all other stream builders.
     ExitOnErr(builder.commit(outputFileName, &ignoredOutGuid));
-    exit(0);
+    ::exit(0);
 }
 
 int main(int argc, char** argv) {
@@ -266,7 +286,7 @@ int main(int argc, char** argv) {
 
     // 0x4F1000
     vector<cv::PublicSym32> publics = {
-        CreatePublicSymbol("main", 1712)
+        CreatePublicSymbol("_main", 16)
     };
     sort(publics.begin(), publics.end(),
             [](auto const& l, auto const& r) { return l.Name < r.Name; });
