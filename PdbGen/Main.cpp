@@ -24,9 +24,10 @@
 
 #include "MD5.h"
 
-namespace cv = llvm::codeview;
 using namespace std;
 using namespace llvm::pdb;
+using namespace llvm::COFF;
+using namespace llvm::codeview;
 
 llvm::ExitOnError ExitOnErr;
 
@@ -34,7 +35,7 @@ struct ModuleInfo
 {
     bool is64Bit{};
     vector<llvm::object::coff_section> sections;
-    cv::GUID guid{};
+    GUID guid{};
     uint32_t age{};
     uint32_t signature{};
 };
@@ -65,7 +66,7 @@ ModuleInfo ReadModuleInfo(const string& modulePath)
     for (const auto& debugDir : obj->debug_directories()) {
         info.signature = debugDir.TimeDateStamp; // TODO: Timestamp.now()?
         if (debugDir.Type == COFF::IMAGE_DEBUG_TYPE_CODEVIEW) {
-            const cv::DebugInfo* debugInfo;
+            const DebugInfo* debugInfo;
             StringRef pdbFileName;
             if (auto ec = obj->getDebugPDBInfo(&debugDir, debugInfo, pdbFileName))
                 ExitOnErr(errorCodeToError(ec));
@@ -83,7 +84,7 @@ ModuleInfo ReadModuleInfo(const string& modulePath)
 }
 
 // TODO: in64_t? How else do we work with 64 bit processes?
-cv::PublicSym32 CreatePublicSymbol(const char* name, int32_t offset) {
+PublicSym32 CreatePublicSymbol(const char* name, int32_t offset) {
     using namespace llvm::codeview;
     PublicSym32 symbol(SymbolRecordKind::PublicSym32);
     symbol.Flags = PublicSymFlags::Function;
@@ -97,16 +98,16 @@ llvm::BumpPtrAllocator llvmAllocator;
 
 template <typename SymType>
 void AddSymbol(llvm::pdb::DbiModuleDescriptorBuilder& modiBuilder, SymType& sym) {
-    cv::CVSymbol cvSym = cv::SymbolSerializer::writeOneSymbol(sym, llvmAllocator, cv::CodeViewContainer::Pdb);
+    CVSymbol cvSym = SymbolSerializer::writeOneSymbol(sym, llvmAllocator, CodeViewContainer::Pdb);
     modiBuilder.addSymbol(cvSym);
 }
 
-void GeneratePDB(ModuleInfo const& moduleInfo, const vector<cv::PublicSym32>& publics, char const* outputFileName)
+void GeneratePDB(ModuleInfo const& moduleInfo, const vector<PublicSym32>& publics, char const* outputFileName)
 {
     // Name doesn't actually matter, since there is no real object file.
     const char* moduleName = R"(C:\Users\localhost\Documents\GitHub\PdbGen\PdbTest\Debug\Main.obj)";
     // This one might matter. Unsure.
-    const char* filename = R"(C:\Users\localhost\Documents\GitHub\PdbGen\Generated\Main.cpp)";
+    const char* filename = R"(C:\Users\localhost\Documents\GitHub\PdbGen\PdbTest\Main.cpp)";
     // I really hope this one doesn't matter.
     const char* tmpFilename = R"(C:\Users\LOCALH~1\AppData\Local\Temp\lnk{CD77352F-E54C-4392-A458-0DE42662F1A3}.tmp)";
 
@@ -133,10 +134,10 @@ void GeneratePDB(ModuleInfo const& moduleInfo, const vector<cv::PublicSym32>& pu
     dbiBuilder.setFlags(1);
     dbiBuilder.setMachineType(moduleInfo.is64Bit ? PDB_Machine::Amd64 : PDB_Machine::x86);
 
-    cv::DebugStringTableSubsection strings;
-    strings.insert("$T0 $ebp = $eip $T0 4 + ^ = $ebp $T0 ^ = $esp $T0 8 + = ");
+    DebugStringTableSubsection strings;
     strings.insert(tmpFilename);
     strings.insert(filename);
+    strings.insert("$T0 $ebp = $eip $T0 4 + ^ = $ebp $T0 ^ = $esp $T0 8 + = ");
     builder.getStringTableBuilder().setStrings(strings); // Must be after inserting strings. Should probably assert that this isn't resized at the end (i.e. nobody adds more strings)
 
     { // Module: Linker Manifest
@@ -144,20 +145,20 @@ void GeneratePDB(ModuleInfo const& moduleInfo, const vector<cv::PublicSym32>& pu
         module.setObjFileName("");
         ExitOnErr(dbiBuilder.addModuleSourceFile(module, R"(C:\Users\LOCALH~1\AppData\Local\Temp\lnk{CD77352F-E54C-4392-A458-0DE42662F1A3}.tmp)"));
 
-        auto checksums = make_shared<cv::DebugChecksumsSubsection>(strings);
-        checksums->addChecksum(filename, cv::FileChecksumKind::MD5, {0xA3, 0x53, 0xD1, 0x2F, 0x29, 0x90, 0x19, 0x35, 0xF1, 0x7C, 0x81, 0x2B, 0xAE, 0x45, 0x1A, 0x23});
+        auto checksums = make_shared<DebugChecksumsSubsection>(strings);
+        checksums->addChecksum(tmpFilename, FileChecksumKind::MD5, {0xA3, 0x53, 0xD1, 0x2F, 0x29, 0x90, 0x19, 0x35, 0xF1, 0x7C, 0x81, 0x2B, 0xAE, 0x45, 0x1A, 0x23});
         module.addDebugSubsection(checksums);
 
         {
-            cv::ObjNameSym sym;
+            ObjNameSym sym;
             sym.Signature = 0;
             sym.Name = R"(C:\Users\LOCALH~1\AppData\Local\Temp\lnk{AFCB38A6-9747-485E-A123-A631A75FAE03}.tmp)"; // some other random temp file
             AddSymbol(module, sym);
         }
         {
-            cv::Compile3Sym sym;
-            sym.Flags = cv::CompileSym3Flags::NoDbgInfo;
-            sym.Machine = cv::CPUType::Intel80386;
+            Compile3Sym sym;
+            sym.Flags = CompileSym3Flags::NoDbgInfo;
+            sym.Machine = CPUType::Intel80386;
             sym.VersionFrontendMajor = 0;
             sym.VersionFrontendMinor = 0;
             sym.VersionFrontendBuild = 0;
@@ -170,7 +171,7 @@ void GeneratePDB(ModuleInfo const& moduleInfo, const vector<cv::PublicSym32>& pu
             AddSymbol(module, sym);
         }
         {
-            cv::EnvBlockSym sym(cv::SymbolRecordKind::EnvBlockSym);
+            EnvBlockSym sym(SymbolRecordKind::EnvBlockSym);
             sym.Fields = {
                 "cwd",
                 R"(C:\Users\localhost\Documents\GitHub\PdbGen\PdbTest)",
@@ -186,37 +187,37 @@ void GeneratePDB(ModuleInfo const& moduleInfo, const vector<cv::PublicSym32>& pu
         // Add files to module (presumably necessary to associate source code lines)
         ExitOnErr(dbiBuilder.addModuleSourceFile(module, filename));
 
-        auto checksums = make_shared<cv::DebugChecksumsSubsection>(strings);
-        checksums->addChecksum(filename, cv::FileChecksumKind::MD5, MD5::HashFile(filename));
+        auto checksums = make_shared<DebugChecksumsSubsection>(strings);
+        checksums->addChecksum(filename, FileChecksumKind::MD5, MD5::HashFile(filename));
         module.addDebugSubsection(checksums);
 
         // main func
-        auto debugSubsection = make_shared<cv::DebugLinesSubsection>(*checksums, strings);
+        auto debugSubsection = make_shared<DebugLinesSubsection>(*checksums, strings);
         debugSubsection->createBlock(filename);
         debugSubsection->setCodeSize(59); // Function length (Total instruction count, including ret)
         debugSubsection->setRelocationAddress(1, 16); // Offset from the program base (?)
-        debugSubsection->setFlags(cv::LineFlags::LF_None);
+        debugSubsection->setFlags(LineFlags::LF_None);
 
-        debugSubsection->addLineInfo(0, cv::LineInfo(1, 1, true)); // Offset, Start, End, isStatement
-        debugSubsection->addLineInfo(30, cv::LineInfo(2, 2, true)); // Offset, Start, End, isStatement
-        debugSubsection->addLineInfo(37, cv::LineInfo(3, 3, true)); // Offset, Start, End, isStatement
-        debugSubsection->addLineInfo(46, cv::LineInfo(4, 4, true)); // Offset, Start, End, isStatement
-        debugSubsection->addLineInfo(54, cv::LineInfo(5, 5, true)); // Offset, Start, End, isStatement
-        debugSubsection->addLineInfo(63, cv::LineInfo(6, 6, true)); // Offset, Start, End, isStatement
-        debugSubsection->addLineInfo(78, cv::LineInfo(7, 7, true)); // Offset, Start, End, isStatement
-        debugSubsection->addLineInfo(81, cv::LineInfo(8, 8, true)); // Offset, Start, End, isStatement
+        debugSubsection->addLineInfo(0, LineInfo(1, 1, true)); // Offset, Start, End, isStatement
+        debugSubsection->addLineInfo(4, LineInfo(2, 2, true)); // Offset, Start, End, isStatement
+        debugSubsection->addLineInfo(11, LineInfo(3, 3, true)); // Offset, Start, End, isStatement
+        debugSubsection->addLineInfo(20, LineInfo(4, 4, true)); // Offset, Start, End, isStatement
+        debugSubsection->addLineInfo(28, LineInfo(5, 5, true)); // Offset, Start, End, isStatement
+        debugSubsection->addLineInfo(37, LineInfo(6, 6, true)); // Offset, Start, End, isStatement
+        debugSubsection->addLineInfo(52, LineInfo(7, 7, true)); // Offset, Start, End, isStatement
+        debugSubsection->addLineInfo(55, LineInfo(8, 8, true)); // Offset, Start, End, isStatement
         module.addDebugSubsection(debugSubsection);
 
         {
-            auto sym = cv::ObjNameSym();
+            auto sym = ObjNameSym();
             sym.Signature = 0;
             sym.Name = moduleName;
             AddSymbol(module, sym);
         }
         {
-            auto cs = cv::Compile3Sym();
-            cs.Flags = cv::CompileSym3Flags::None;
-            cs.Machine = cv::CPUType::Pentium3; // Assume. This may not matter?
+            auto cs = Compile3Sym();
+            cs.Flags = CompileSym3Flags::None;
+            cs.Machine = CPUType::Pentium3; // Assume. This may not matter?
             // The Frontend version can be whatever.
             cs.VersionFrontendMajor = 19;
             cs.VersionFrontendBuild = 23;
@@ -231,54 +232,54 @@ void GeneratePDB(ModuleInfo const& moduleInfo, const vector<cv::PublicSym32>& pu
             cs.VersionBackendQFE = 4;
             cs.Version = "Microsoft (R) Optimizing Compiler";
 
-            // cs.setLanguage(cv::SourceLanguage::Link);
+            // cs.setLanguage(SourceLanguage::Link);
             AddSymbol(module, cs);
         }
         {
-            auto sym = cv::UsingNamespaceSym(cv::SymbolRecordKind::UsingNamespaceSym);
+            auto sym = UsingNamespaceSym(SymbolRecordKind::UsingNamespaceSym);
             sym.Name = "std";
             AddSymbol(module, sym);
         }
         {
-            auto sym = cv::ProcSym(cv::SymbolRecordKind::GlobalProcSym);
+            auto sym = ProcSym(SymbolRecordKind::GlobalProcSym);
             sym.Parent = 0;
             sym.End = 240;
             sym.Next = 0;
             sym.CodeSize = 59;
             sym.DbgStart = 4;
             sym.DbgEnd = 55;
-            sym.FunctionType = cv::TypeIndex(cv::TypeIndex::FirstNonSimpleIndex + 1);
+            sym.FunctionType = TypeIndex(TypeIndex::FirstNonSimpleIndex + 1);
             sym.CodeOffset = 16;
             sym.Segment = 1;
-            sym.Flags = cv::ProcSymFlags::HasFP;
+            sym.Flags = ProcSymFlags::HasFP;
             sym.Name = "main";
             AddSymbol(module, sym);
         }
         {
-            auto sym = cv::FrameProcSym(cv::SymbolRecordKind::FrameProcSym);
+            auto sym = FrameProcSym(SymbolRecordKind::FrameProcSym);
             sym.TotalFrameBytes = 4;
             sym.PaddingFrameBytes = 0;
             sym.OffsetToPadding = 0;
             sym.BytesOfCalleeSavedRegisters = 0;
             sym.OffsetOfExceptionHandler = 0;
             sym.SectionIdOfExceptionHandler = 0;
-            sym.Flags = cv::FrameProcedureOptions::AsynchronousExceptionHandling | cv::FrameProcedureOptions::OptimizedForSpeed;
+            sym.Flags = FrameProcedureOptions::AsynchronousExceptionHandling | FrameProcedureOptions::OptimizedForSpeed;
             AddSymbol(module, sym);
         }
         {
-            auto sym = cv::BPRelativeSym(cv::SymbolRecordKind::BPRelativeSym);
+            auto sym = BPRelativeSym(SymbolRecordKind::BPRelativeSym);
             sym.Offset = -4;
-            sym.Type = cv::TypeIndex(116);
+            sym.Type = TypeIndex(116);
             sym.Name = "a";
             AddSymbol(module, sym);
         }
         {
-            auto sym = cv::ScopeEndSym(cv::SymbolRecordKind::ScopeEndSym);
+            auto sym = ScopeEndSym(SymbolRecordKind::ScopeEndSym);
             AddSymbol(module, sym);
         }
         {
-            auto sym = cv::BuildInfoSym(cv::SymbolRecordKind::BuildInfoSym);
-            sym.BuildId = cv::TypeIndex(cv::TypeIndex::FirstNonSimpleIndex + 9);
+            auto sym = BuildInfoSym(SymbolRecordKind::BuildInfoSym);
+            sym.BuildId = TypeIndex(TypeIndex::FirstNonSimpleIndex + 9);
             AddSymbol(module, sym);
         }
     }
@@ -286,15 +287,15 @@ void GeneratePDB(ModuleInfo const& moduleInfo, const vector<cv::PublicSym32>& pu
         DbiModuleDescriptorBuilder& module = ExitOnErr(dbiBuilder.addModuleInfo("* Linker *"));
         module.setObjFileName("");
         {
-            cv::ObjNameSym sym;
+            ObjNameSym sym;
             sym.Signature = 0;
             sym.Name = " * Linker *";
             AddSymbol(module, sym);
         }
         {
-            cv::Compile3Sym sym;
-            sym.Flags = cv::CompileSym3Flags::None;
-            sym.Machine = cv::CPUType::Intel80386;
+            Compile3Sym sym;
+            sym.Flags = CompileSym3Flags::None;
+            sym.Machine = CPUType::Intel80386;
             sym.VersionFrontendMajor = 0;
             sym.VersionFrontendMinor = 0;
             sym.VersionFrontendBuild = 0;
@@ -307,7 +308,7 @@ void GeneratePDB(ModuleInfo const& moduleInfo, const vector<cv::PublicSym32>& pu
             AddSymbol(module, sym);
         }
         {
-            cv::EnvBlockSym sym(cv::SymbolRecordKind::EnvBlockSym);
+            EnvBlockSym sym(SymbolRecordKind::EnvBlockSym);
             sym.Fields = {
                 "cwd",
                 R"(C:\Users\localhost\Documents\GitHub\PdbGen\PdbTest)",
@@ -316,13 +317,13 @@ void GeneratePDB(ModuleInfo const& moduleInfo, const vector<cv::PublicSym32>& pu
                 "pdb",
                 R"(C:\Users\localhost\Documents\GitHub\PdbGen\PdbTest\Debug\PdbTest.pdb)",
                 "cmd",
-                R"#( /ERRORREPORT:PROMPT /OUT:C:\Users\localhost\Documents\GitHub\PdbGen\PdbTest\Debug\PdbTest.exe /INCREMENTAL /NOLOGO /NODEFAULTLIB /MANIFEST "/MANIFESTUAC:level=''asInvoker'' uiAccess=''false''" /manifest:embed /DEBUG:FULL /PDB:C:\Users\localhost\Documents\GitHub\PdbGen\PdbTest\Debug\PdbTest.pdb /SUBSYSTEM:CONSOLE /TLBID:1 /ENTRY:main /DYNAMICBASE:NO /NXCOMPAT:NO /IMPLIB:C:\Users\localhost\Documents\GitHub\PdbGen\PdbTest\Debug\PdbTest.lib /MACHINE:X86)#"
+                R"#( /ERRORREPORT:PROMPT /OUT:C:\Users\localhost\Documents\GitHub\PdbGen\PdbTest\Debug\PdbTest.exe /INCREMENTAL /NOLOGO /NODEFAULTLIB /MANIFEST "/MANIFESTUAC:level='asInvoker' uiAccess='false'" /manifest:embed /DEBUG:FULL /PDB:C:\Users\localhost\Documents\GitHub\PdbGen\PdbTest\Debug\PdbTest.pdb /SUBSYSTEM:CONSOLE /TLBID:1 /ENTRY:main /DYNAMICBASE:NO /NXCOMPAT:NO /IMPLIB:C:\Users\localhost\Documents\GitHub\PdbGen\PdbTest\Debug\PdbTest.lib /MACHINE:X86)#"
             };
             AddSymbol(module, sym);
         }
         {
-            cv::TrampolineSym sym(cv::SymbolRecordKind::TrampolineSym);
-            sym.Type = cv::TrampolineType::TrampIncremental;
+            TrampolineSym sym(SymbolRecordKind::TrampolineSym);
+            sym.Type = TrampolineType::TrampIncremental;
             sym.Size = 5;
             sym.ThunkOffset = 5;
             sym.TargetOffset = 16;
@@ -331,85 +332,84 @@ void GeneratePDB(ModuleInfo const& moduleInfo, const vector<cv::PublicSym32>& pu
             AddSymbol(module, sym);
         }
         {
-            cv::SectionSym sym(cv::SymbolRecordKind::SectionSym);
+            SectionSym sym(SymbolRecordKind::SectionSym);
             sym.SectionNumber = 1;
             sym.Alignment = 12;
             sym.Rva = 4096;
             sym.Length = 4189;
-            sym.Characteristics = (1 << 30) | (1 << 29) | (1 << 5);
+            sym.Characteristics = SectionCharacteristics::IMAGE_SCN_MEM_READ | SectionCharacteristics::IMAGE_SCN_MEM_EXECUTE | SectionCharacteristics::IMAGE_SCN_CNT_CODE;
             sym.Name = ".text";
             AddSymbol(module, sym);
         }
         {
-            cv::CoffGroupSym sym(cv::SymbolRecordKind::CoffGroupSym);
+            CoffGroupSym sym(SymbolRecordKind::CoffGroupSym);
             sym.Size = 4189;
-            sym.Characteristics = (1 << 30) | (1 << 29) | (1 << 5);
+            sym.Characteristics = SectionCharacteristics::IMAGE_SCN_MEM_READ | SectionCharacteristics::IMAGE_SCN_MEM_EXECUTE | SectionCharacteristics::IMAGE_SCN_CNT_CODE;
             sym.Offset = 0;
             sym.Segment = 1;
             sym.Name = ".text$mn";
             AddSymbol(module, sym);
         }
         {
-            cv::SectionSym sym(cv::SymbolRecordKind::SectionSym);
+            SectionSym sym(SymbolRecordKind::SectionSym);
             sym.SectionNumber = 2;
             sym.Alignment = 12;
             sym.Rva = 12288;
             sym.Length = 719;
-            sym.Characteristics = (1 << 30) | (1 << 6);
+            sym.Characteristics = SectionCharacteristics::IMAGE_SCN_MEM_READ | SectionCharacteristics::IMAGE_SCN_CNT_INITIALIZED_DATA;
             sym.Name = ".rdata";
             AddSymbol(module, sym);
         }
         {
-            cv::CoffGroupSym sym(cv::SymbolRecordKind::CoffGroupSym);
+            CoffGroupSym sym(SymbolRecordKind::CoffGroupSym);
             sym.Size = 324;
-            sym.Characteristics = (1 << 30) | (1 << 6);
-
+            sym.Characteristics = SectionCharacteristics::IMAGE_SCN_MEM_READ | SectionCharacteristics::IMAGE_SCN_CNT_INITIALIZED_DATA;
             sym.Offset = 0;
             sym.Segment = 2;
             sym.Name = ".rdata";
             AddSymbol(module, sym);
         }
         {
-            cv::CoffGroupSym sym(cv::SymbolRecordKind::CoffGroupSym);
+            CoffGroupSym sym(SymbolRecordKind::CoffGroupSym);
             sym.Size = 0;
-            sym.Characteristics = (1 << 30) | (1 << 6);
+            sym.Characteristics = SectionCharacteristics::IMAGE_SCN_MEM_READ | SectionCharacteristics::IMAGE_SCN_CNT_INITIALIZED_DATA;
             sym.Offset = 323;
             sym.Segment = 2;
             sym.Name = ".edata";
             AddSymbol(module, sym);
         }
         {
-            cv::CoffGroupSym sym(cv::SymbolRecordKind::CoffGroupSym);
+            CoffGroupSym sym(SymbolRecordKind::CoffGroupSym);
             sym.Size = 395;
-            sym.Characteristics = (1 << 30) | (1 << 6);
+            sym.Characteristics = SectionCharacteristics::IMAGE_SCN_MEM_READ | SectionCharacteristics::IMAGE_SCN_CNT_INITIALIZED_DATA;
             sym.Offset = 324;
             sym.Segment = 2;
             sym.Name = ".rdata$zzzdbg";
             AddSymbol(module, sym);
         }
         {
-            cv::SectionSym sym(cv::SymbolRecordKind::SectionSym);
+            SectionSym sym(SymbolRecordKind::SectionSym);
             sym.SectionNumber = 3;
             sym.Alignment = 12;
             sym.Rva = 16384;
             sym.Length = 1084;
-            sym.Characteristics = (1 << 30) | (1 << 6);
+            sym.Characteristics = SectionCharacteristics::IMAGE_SCN_MEM_READ | SectionCharacteristics::IMAGE_SCN_CNT_INITIALIZED_DATA;
             sym.Name = ".rsrc";
             AddSymbol(module, sym);
         }
         {
-            cv::CoffGroupSym sym(cv::SymbolRecordKind::CoffGroupSym);
+            CoffGroupSym sym(SymbolRecordKind::CoffGroupSym);
             sym.Size = 368;
-            sym.Characteristics = (1 << 30) | (1 << 6);
+            sym.Characteristics = SectionCharacteristics::IMAGE_SCN_MEM_READ | SectionCharacteristics::IMAGE_SCN_CNT_INITIALIZED_DATA;
             sym.Offset = 0;
             sym.Segment = 3;
             sym.Name = ".rsrc$01";
             AddSymbol(module, sym);
         }
         {
-            cv::CoffGroupSym sym(cv::SymbolRecordKind::CoffGroupSym);
+            CoffGroupSym sym(SymbolRecordKind::CoffGroupSym);
             sym.Size = 716;
-            sym.Characteristics = (1 << 30) | (1 << 6);
+            sym.Characteristics = SectionCharacteristics::IMAGE_SCN_MEM_READ | SectionCharacteristics::IMAGE_SCN_CNT_INITIALIZED_DATA;
             sym.Offset = 368;
             sym.Segment = 3;
             sym.Name = ".rsrc$02";
@@ -426,7 +426,7 @@ void GeneratePDB(ModuleInfo const& moduleInfo, const vector<cv::PublicSym32>& pu
          moduleInfo.sections.size() * sizeof(moduleInfo.sections[0])}));
 
     GSIStreamBuilder& gsiBuilder = builder.getGsiBuilder();
-    for (const cv::PublicSym32& pub : publics)
+    for (const PublicSym32& pub : publics)
         gsiBuilder.addPublicSymbol(pub);
     dbiBuilder.setPublicsStreamIndex(gsiBuilder.getPublicsStreamIndex());
     // dbiBuilder.setGlobalsStreamIndex(gsiBuilder.getGlobalsStreamIndex());
@@ -435,26 +435,25 @@ void GeneratePDB(ModuleInfo const& moduleInfo, const vector<cv::PublicSym32>& pu
     TpiStreamBuilder& tpiBuilder = builder.getTpiBuilder();
     tpiBuilder.setVersionHeader(PdbTpiV80);
 
-    cv::AppendingTypeTableBuilder attb(llvmAllocator);
     {
-        cv::ArgListRecord record(cv::TypeRecordKind::ArgList);
-        record.ArgIndices = {};
-        tpiBuilder.addTypeRecord(attb.getType(attb.writeLeafType(record)).RecordData, llvm::None);
-    }
-    {
-        cv::ProcedureRecord record(cv::TypeRecordKind::Procedure);
-        record.ReturnType = cv::TypeIndex(116);
-        record.CallConv = cv::CallingConvention::NearC;
-        record.Options = cv::FunctionOptions::None;
-        record.ParameterCount = 0;
-        record.ArgumentList = cv::TypeIndex(cv::TypeIndex::FirstNonSimpleIndex);
-        tpiBuilder.addTypeRecord(attb.getType(attb.writeLeafType(record)).RecordData, llvm::None);
+        AppendingTypeTableBuilder attb(llvmAllocator);
+        {
+            ArgListRecord record(TypeRecordKind::ArgList);
+            record.ArgIndices = {};
+            tpiBuilder.addTypeRecord(attb.getType(attb.writeLeafType(record)).RecordData, llvm::None);
+        }
+        {
+            ProcedureRecord record(TypeRecordKind::Procedure);
+            record.ReturnType = TypeIndex(116);
+            record.CallConv = CallingConvention::NearC;
+            record.Options = FunctionOptions::None;
+            record.ParameterCount = 0;
+            record.ArgumentList = TypeIndex(TypeIndex::FirstNonSimpleIndex);
+            tpiBuilder.addTypeRecord(attb.getType(attb.writeLeafType(record)).RecordData, llvm::None);
+        }
     }
 
-    TpiStreamBuilder& ipiBuilder = builder.getIpiBuilder();
-    ipiBuilder.setVersionHeader(PdbTpiV80);
-
-    cv::FrameData frameData;
+    FrameData frameData;
     frameData.RvaStart = 0x1010;
     frameData.CodeSize = 59;
     frameData.LocalSize = 4;
@@ -462,27 +461,130 @@ void GeneratePDB(ModuleInfo const& moduleInfo, const vector<cv::PublicSym32>& pu
     frameData.MaxStackSize = 0;
     frameData.PrologSize = 4;
     frameData.SavedRegsSize = 0;
-    frameData.Flags = !cv::FrameData::HasSEH | !cv::FrameData::HasEH | cv::FrameData::IsFunctionStart;
+    frameData.Flags = !FrameData::HasSEH | !FrameData::HasEH | FrameData::IsFunctionStart;
     frameData.FrameFunc = strings.getIdForString("$T0 $ebp = $eip $T0 4 + ^ = $ebp $T0 ^ = $esp $T0 8 + = ");
     dbiBuilder.addNewFpoData(frameData);
 
+    ExitOnErr(builder.addNamedStream("/src/headerblock", ""));
+
+    TpiStreamBuilder& ipiBuilder = builder.getIpiBuilder();
+    ipiBuilder.setVersionHeader(PdbTpiV80);
+
+    {
+        AppendingTypeTableBuilder attb(llvmAllocator);
+        {
+            StringIdRecord record(TypeRecordKind::StringId);
+            record.Id = TypeIndex(0);
+            record.String = R"(C:\Users\localhost\Documents\GitHub\PdbGen\PdbTest)";
+            ipiBuilder.addTypeRecord(attb.getType(attb.writeLeafType(record)).RecordData, llvm::None);
+        }
+        {
+            StringIdRecord record(TypeRecordKind::StringId);
+            record.Id = TypeIndex(0);
+            record.String = R"#(C:\Program Files (x86)\Microsoft Visual Studio\2019\Community\VC\Tools\MSVC\14.23.28105\bin\HostX86\x86\CL.exe)#";
+            ipiBuilder.addTypeRecord(attb.getType(attb.writeLeafType(record)).RecordData, llvm::None);
+        }
+        {
+            StringIdRecord record(TypeRecordKind::StringId);
+            record.Id = TypeIndex(0);
+            record.String = R"(Main.cpp)";
+            ipiBuilder.addTypeRecord(attb.getType(attb.writeLeafType(record)).RecordData, llvm::None);
+        }
+        {
+            StringIdRecord record(TypeRecordKind::StringId);
+            record.Id = TypeIndex(0);
+            record.String = R"(C:\Users\localhost\Documents\GitHub\PdbGen\PdbTest\Debug\vc142.pdb)";
+            ipiBuilder.addTypeRecord(attb.getType(attb.writeLeafType(record)).RecordData, llvm::None);
+        }
+        {
+            StringIdRecord record(TypeRecordKind::StringId);
+            record.Id = TypeIndex(0);
+            record.String = R"#(-c -Zi -nologo -W3 -WX- -diagnostics:column -Od -D_MBCS -Gm- -MDd -GS- -Za -Zc:wchar_t- -Zc:forScope- -Zc:rvalueCast- -GR- -Gd -TP -analyze- -FC -Zl -errorreport:prompt -I"C:\Program Files (x86)\Microsoft Visual Studio\2019\Community\VC\Tools\MSVC\14.23.28105)#";
+            ipiBuilder.addTypeRecord(attb.getType(attb.writeLeafType(record)).RecordData, llvm::None);
+        }
+        {
+            StringIdRecord record(TypeRecordKind::StringId);
+            record.Id = TypeIndex(0);
+            record.String = R"#(\include" -I"C:\Program Files (x86)\Microsoft Visual Studio\2019\Community\VC\Tools\MSVC\14.23.28105\atlmfc\include" -I"C:\Program Files (x86)\Microsoft Visual Studio\2019\Community\VC\Auxiliary\VS\include" -I"C:\Program Files (x86)\Windows)#";
+            ipiBuilder.addTypeRecord(attb.getType(attb.writeLeafType(record)).RecordData, llvm::None);
+        }
+        {
+            StringIdRecord record(TypeRecordKind::StringId);
+            record.Id = TypeIndex(0);
+            record.String = R"#( Kits\10\Include\10.0.18362.0\ucrt" -I"C:\Program Files (x86)\Windows Kits\10\Include\10.0.18362.0\um" -I"C:\Program Files (x86)\Windows Kits\10\Include\10.0.18362.0\shared" -I"C:\Program Files (x86)\Windows Kits\10\Include\10.0.18362.0\winrt")#";
+            ipiBuilder.addTypeRecord(attb.getType(attb.writeLeafType(record)).RecordData, llvm::None);
+        }
+        {
+            StringListRecord record(TypeRecordKind::StringList);
+            record.StringIndices = {TypeIndex(0x1004), TypeIndex(0x1005), TypeIndex(0x1006)};
+            ipiBuilder.addTypeRecord(attb.getType(attb.writeLeafType(record)).RecordData, llvm::None);
+        }
+        {
+            StringIdRecord record(TypeRecordKind::StringId);
+            record.Id = TypeIndex(0);
+            record.String = R"#( -I"C:\Program Files (x86)\Windows Kits\10\Include\10.0.18362.0\cppwinrt" -IC:\Users\localhost\Documents\GitHub\PdbGen\PdbTest\Include\um -X)#";
+            ipiBuilder.addTypeRecord(attb.getType(attb.writeLeafType(record)).RecordData, llvm::None);
+        }
+        {
+            BuildInfoRecord record(TypeRecordKind::BuildInfo);
+            record.ArgIndices = {TypeIndex(0x1000), TypeIndex(0x1001), TypeIndex(0x1002), TypeIndex(0x1003), TypeIndex(0x1008)};
+            ipiBuilder.addTypeRecord(attb.getType(attb.writeLeafType(record)).RecordData, llvm::None);
+        }
+    }
+
     /* Things that I'm potentially missing:
-        505 bytes of DBI Stream
-        1248 bytes of IPI Stream
-        20 bytes of Symbol records
-
-        Module: Linker Manifest
-        Module: Linker
-
-        (Unlikely)
         40 bytes of "Old MSF directory"
-        25 bytes of PDB Stream
-        12 bytes of Global Symbol Hash
+        4 bytes of PDB Stream
+        269 bytes of DBI Stream
+        12 bytes of Global Symbol Hash -> Hash Adjusters
         12 bytes of Public Symbol Hash
-        8 bytes of TPI Hash
+        20 bytes of Symbol Records
+        1 byte of /names stream
+        4 bytes of Main.obj module
+        8 bytes of TPI hashes -> See TypeHashingTest.cpp
+        40 bytes of IPI hashes -> See TypeHashingTest.cpp
     */
-
-    cv::GUID ignoredOutGuid;
+    /*                    Modules
+============================================================
+  Mod 0000 | `* Linker Generated Manifest RES *`: 
+  SC[???]  | mod = 65535, 65535:0000, size = -1, data crc = 0, reloc crc = 0
+          none
+  Obj: ``: 
+  debug stream: 11, # files: 1, has ec info: false
+  pdb file ni: 0 ``, src file ni: 0 ``
+Mod 0001 | `C:\Users\localhost\Documents\GitHub\PdbGen\PdbTest\Debug\Main.obj`: 
+SC[.text]  | mod = 1, 0001:0016, size = 59, data crc = 804367154, reloc crc = 0
+        IMAGE_SCN_CNT_CODE | IMAGE_SCN_ALIGN_16BYTES | IMAGE_SCN_MEM_EXECUTE | 
+        IMAGE_SCN_MEM_READ
+Obj: `C:\Users\localhost\Documents\GitHub\PdbGen\PdbTest\Debug\Main.obj`: 
+debug stream: 14, # files: 1, has ec info: false
+pdb file ni: 0 ``, src file ni: 0 ``
+Mod 0002 | `* Linker *`: 
+SC[.text]  | mod = 2, 0001:0000, size = 10, data crc = 0, reloc crc = 0
+        IMAGE_SCN_CNT_CODE | IMAGE_SCN_MEM_EXECUTE | IMAGE_SCN_MEM_READ
+Obj: ``: 
+debug stream: 15, # files: 0, has ec info: false
+pdb file ni: 1 `C:\Users\localhost\Documents\GitHub\PdbGen\PdbTest\Debug\PdbTest.pdb`, src file ni: 0 ``
+    */
+    /*             Section Contributions
+============================================================
+  SC[.text]   | mod = 2, 0001:0000, size = 10, data crc = 0, reloc crc = 0
+                IMAGE_SCN_CNT_CODE | IMAGE_SCN_MEM_EXECUTE | IMAGE_SCN_MEM_READ
+  SC[.text]   | mod = 1, 0001:0016, size = 59, data crc = 804367154, reloc crc = 0
+                IMAGE_SCN_CNT_CODE | IMAGE_SCN_ALIGN_16BYTES | IMAGE_SCN_MEM_EXECUTE | 
+                IMAGE_SCN_MEM_READ
+  SC[.rdata]  | mod = 2, 0002:0000, size = 56, data crc = 0, reloc crc = 0
+                IMAGE_SCN_CNT_INITIALIZED_DATA | IMAGE_SCN_MEM_READ
+  SC[.rdata]  | mod = 2, 0002:0324, size = 93, data crc = 0, reloc crc = 0
+                IMAGE_SCN_CNT_INITIALIZED_DATA | IMAGE_SCN_ALIGN_4BYTES | IMAGE_SCN_MEM_READ
+  SC[.rdata]  | mod = 2, 0002:0420, size = 20, data crc = 0, reloc crc = 0
+                IMAGE_SCN_CNT_INITIALIZED_DATA | IMAGE_SCN_ALIGN_4BYTES | IMAGE_SCN_MEM_READ
+  SC[.rsrc]   | mod = 0, 0003:0000, size = 88, data crc = 0, reloc crc = 0
+                IMAGE_SCN_CNT_INITIALIZED_DATA | IMAGE_SCN_MEM_READ
+  SC[.rsrc]   | mod = 0, 0003:0368, size = 384, data crc = 0, reloc crc = 0
+                IMAGE_SCN_CNT_INITIALIZED_DATA | IMAGE_SCN_MEM_READ
+    */
+    GUID ignoredOutGuid;
     // Also commits all other stream builders.
     ExitOnErr(builder.commit(outputFileName, &ignoredOutGuid));
     ::exit(0);
@@ -492,7 +594,7 @@ int main(int argc, char** argv) {
     ModuleInfo moduleInfo = ReadModuleInfo("C:/Users/localhost/Documents/GitHub/PdbGen/PdbTest/Debug/PdbTest.exe");
 
     // 0x4F1000
-    vector<cv::PublicSym32> publics = {
+    vector<PublicSym32> publics = {
         CreatePublicSymbol("_main", 16)
     };
     sort(publics.begin(), publics.end(),
