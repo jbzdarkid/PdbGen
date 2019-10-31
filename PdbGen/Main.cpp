@@ -98,7 +98,7 @@ void GeneratePDB(ModuleInfo const& moduleInfo, char const* outputFileName)
     // Name doesn't actually matter, since there is no real object file.
     const char* moduleName = R"(C:\Users\localhost\Documents\GitHub\PdbGen\PdbTest\Debug\Main.obj)";
     // This one might matter. Unsure.
-    const char* filename = R"(C:\Users\localhost\Documents\GitHub\PdbGen\PdbTest\Main.cpp)";
+    const char* filename = R"(C:\Users\localhost\Documents\GitHub\PdbGen\Generated\Main.cpp)";
     // I really hope this one doesn't matter.
     const char* tmpFilename = R"(C:\Users\LOCALH~1\AppData\Local\Temp\lnk{CD77352F-E54C-4392-A458-0DE42662F1A3}.tmp)";
 
