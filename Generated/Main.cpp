@@ -1,4 +1,4 @@
-int main() {
+int mainfoo() {
     int a = 1;
     a++;
     a *= 2;

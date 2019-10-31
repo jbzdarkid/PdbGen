@@ -21,8 +21,6 @@
 
 #pragma warning(pop)
 
-#include <cstdlib>
-
 #include "MD5.h"
 
 using namespace std;
@@ -32,14 +30,13 @@ using namespace llvm::codeview;
 
 // I hate globals.
 llvm::BumpPtrAllocator llvmAllocator;
-GlobalTypeTableBuilder ttb(llvmAllocator);
 llvm::ExitOnError ExitOnErr;
 
 struct ModuleInfo
 {
     bool is64Bit{};
     vector<llvm::object::coff_section> sections;
-    GUID guid{};
+    llvm::codeview::GUID guid{};
     uint32_t age{};
     uint32_t signature{};
 };
@@ -69,7 +66,7 @@ ModuleInfo ReadModuleInfo(const string& modulePath)
     info.is64Bit = obj->is64();
     for (const auto& debugDir : obj->debug_directories()) {
         info.signature = debugDir.TimeDateStamp; // TODO: Timestamp.now()?
-        if (debugDir.Type == COFF::IMAGE_DEBUG_TYPE_CODEVIEW) {
+        if (debugDir.Type == IMAGE_DEBUG_TYPE_CODEVIEW) {
             const DebugInfo* debugInfo;
             StringRef pdbFileName;
             if (auto ec = obj->getDebugPDBInfo(&debugDir, debugInfo, pdbFileName))
@@ -95,9 +92,7 @@ void AddSymbol(llvm::pdb::DbiModuleDescriptorBuilder& modiBuilder, SymType& sym)
 
 void GeneratePDB(ModuleInfo const& moduleInfo, char const* outputFileName)
 {
-    // Name doesn't actually matter, since there is no real object file.
-    const char* moduleName = R"(C:\Users\localhost\Documents\GitHub\PdbGen\PdbTest\Debug\Main.obj)";
-    // This one might matter. Unsure.
+    const char* moduleName = R"(C:\Users\localhost\Documents\GitHub\PdbGen\PdbTest\Debug\Main.obj)"; // Immutable
     const char* filename = R"(C:\Users\localhost\Documents\GitHub\PdbGen\Generated\Main.cpp)";
 
     PDBFileBuilder builder(llvmAllocator);
@@ -123,9 +118,18 @@ void GeneratePDB(ModuleInfo const& moduleInfo, char const* outputFileName)
     dbiBuilder.setFlags(1);
     dbiBuilder.setMachineType(moduleInfo.is64Bit ? PDB_Machine::Amd64 : PDB_Machine::x86);
 
-    DebugStringTableSubsection strings;
-
     ExitOnErr(dbiBuilder.addModuleInfo("* Linker Generated Manifest RES *"));
+    {
+        SectionContrib sc;
+        sc.Imod = 1;
+        sc.ISect = 1;
+        sc.Off = 16;
+        sc.Size = 59;
+        sc.Characteristics = IMAGE_SCN_CNT_CODE | IMAGE_SCN_ALIGN_16BYTES | IMAGE_SCN_MEM_EXECUTE | IMAGE_SCN_MEM_READ;
+        dbiBuilder.addSectionContrib(sc);
+    }
+
+    DebugStringTableSubsection strings; // Declared outside because this object crashes during the destructor
 
     { // Module: Main.obj
         DbiModuleDescriptorBuilder& module = ExitOnErr(dbiBuilder.addModuleInfo(moduleName));
@@ -134,14 +138,19 @@ void GeneratePDB(ModuleInfo const& moduleInfo, char const* outputFileName)
         ExitOnErr(dbiBuilder.addModuleSourceFile(module, filename));
 
         auto checksums = make_shared<DebugChecksumsSubsection>(strings);
-        checksums->addChecksum(filename, FileChecksumKind::MD5, MD5::HashFile(filename));
+        int FD;
+        if (auto ec = llvm::sys::fs::openFileForRead(filename, FD, llvm::sys::fs::OpenFlags::OF_None))
+            ExitOnErr(llvm::errorCodeToError(ec));
+        auto result = llvm::sys::fs::md5_contents(FD);
+        if (!result)
+            ExitOnErr(llvm::errorCodeToError(result.getError()));
+        checksums->addChecksum(filename, FileChecksumKind::MD5, result.get().Bytes);
         module.addDebugSubsection(checksums);
 
-        // main func
         auto debugSubsection = make_shared<DebugLinesSubsection>(*checksums, strings);
         debugSubsection->createBlock(filename);
         debugSubsection->setCodeSize(59); // Function length (Total instruction count, including ret)
-        debugSubsection->setRelocationAddress(1, 16); // Offset from the program base (?)
+        debugSubsection->setRelocationAddress(1, 16); // Offset from the program base
         debugSubsection->setFlags(LineFlags::LF_None);
 
         debugSubsection->addLineInfo(0, LineInfo(1, 1, true)); // Offset, Start, End, isStatement
@@ -155,30 +164,19 @@ void GeneratePDB(ModuleInfo const& moduleInfo, char const* outputFileName)
         module.addDebugSubsection(debugSubsection);
 
         {
-            auto sym = ObjNameSym();
-            sym.Signature = 0;
+            auto sym = ObjNameSym(SymbolRecordKind::ObjNameSym);
             sym.Name = moduleName;
             AddSymbol(module, sym);
         }
         {
-            auto cs = Compile3Sym();
-            cs.Flags = CompileSym3Flags::None;
-            cs.Machine = CPUType::Pentium3; // Assume. This may not matter?
-            // The Frontend version can be whatever.
-            cs.VersionFrontendMajor = 19;
-            cs.VersionFrontendBuild = 23;
-            cs.VersionFrontendMinor = 28016;
-            cs.VersionFrontendQFE = 4;
-
             // The backend version must be a valid MSVC version. See LLD documentation:
             // https://github.com/llvm-mirror/lld/blob/master/COFF/PDB.cpp#L1395
+            auto cs = Compile3Sym(SymbolRecordKind::Compile3Sym);
             cs.VersionBackendMajor = 19;
             cs.VersionBackendMinor = 23;
             cs.VersionBackendBuild = 28016;
             cs.VersionBackendQFE = 4;
             cs.Version = "Microsoft (R) Optimizing Compiler";
-
-            // cs.setLanguage(SourceLanguage::Link);
             AddSymbol(module, cs);
         }
         {
@@ -192,45 +190,26 @@ void GeneratePDB(ModuleInfo const& moduleInfo, char const* outputFileName)
             sym.End = 240;
             sym.Next = 0;
             sym.CodeSize = 59;
-            sym.DbgStart = 4;
-            sym.DbgEnd = 55;
-            sym.FunctionType = TypeIndex(TypeIndex::FirstNonSimpleIndex + 1);
+            // sym.DbgStart = 4;
+            // sym.DbgEnd = 55;
             sym.CodeOffset = 16;
             sym.Segment = 1;
-            sym.Flags = ProcSymFlags::HasFP;
-            sym.Name = "main";
+            // sym.Flags = ProcSymFlags::HasFP;
+            sym.Name = "main"; // Immutable -- maybe because this is an entry point?
             AddSymbol(module, sym);
         }
         {
             auto sym = FrameProcSym(SymbolRecordKind::FrameProcSym);
             sym.TotalFrameBytes = 4;
-            sym.PaddingFrameBytes = 0;
-            sym.OffsetToPadding = 0;
-            sym.BytesOfCalleeSavedRegisters = 0;
-            sym.OffsetOfExceptionHandler = 0;
-            sym.SectionIdOfExceptionHandler = 0;
-            sym.Flags = FrameProcedureOptions::AsynchronousExceptionHandling | FrameProcedureOptions::OptimizedForSpeed;
             AddSymbol(module, sym);
         }
         {
             auto sym = BPRelativeSym(SymbolRecordKind::BPRelativeSym);
             sym.Offset = -4;
-            sym.Type = TypeIndex(116);
-            sym.Name = "a";
+            sym.Type = TypeIndex(SimpleTypeKind::Int32); // Mutable!
+            sym.Name = "b"; // Mutable! (good)
             AddSymbol(module, sym);
         }
-    }
-
-    { // Unexpected symbol reader error
-        SectionContrib sc;
-        sc.Imod = 1;
-        sc.ISect = 1;
-        sc.Off = 16;
-        sc.Size = 59;
-        sc.DataCrc = 804367154;
-        sc.RelocCrc = 0;
-        sc.Characteristics = IMAGE_SCN_CNT_CODE | IMAGE_SCN_ALIGN_16BYTES | IMAGE_SCN_MEM_EXECUTE | IMAGE_SCN_MEM_READ;
-        dbiBuilder.addSectionContrib(sc);
     }
 
     ExitOnErr(dbiBuilder.addDbgStream(
@@ -253,26 +232,6 @@ void GeneratePDB(ModuleInfo const& moduleInfo, char const* outputFileName)
 
     TpiStreamBuilder& tpiBuilder = builder.getTpiBuilder();
     tpiBuilder.setVersionHeader(PdbTpiV80);
-    {
-        {
-            ArgListRecord record(TypeRecordKind::ArgList);
-            record.ArgIndices = {};
-            CVType cvt = ttb.getType(ttb.writeLeafType(record));
-            tpiBuilder.addTypeRecord(cvt.RecordData, ExitOnErr(hashTypeRecord(cvt)));
-        }
-        {
-            ProcedureRecord record(TypeRecordKind::Procedure);
-            record.ReturnType = TypeIndex(116);
-            record.CallConv = CallingConvention::NearC;
-            record.Options = FunctionOptions::None;
-            record.ParameterCount = 0;
-            record.ArgumentList = TypeIndex(TypeIndex::FirstNonSimpleIndex);
-            CVType cvt = ttb.getType(ttb.writeLeafType(record));
-            tpiBuilder.addTypeRecord(cvt.RecordData, ExitOnErr(hashTypeRecord(cvt)));
-        }
-    }
-
-    //ExitOnErr(builder.addNamedStream("/src/headerblock", ""));
 
     TpiStreamBuilder& ipiBuilder = builder.getIpiBuilder();
     ipiBuilder.setVersionHeader(PdbTpiV80);
@@ -280,6 +239,7 @@ void GeneratePDB(ModuleInfo const& moduleInfo, char const* outputFileName)
     GUID ignoredOutGuid;
     // Also commits all other stream builders.
     ExitOnErr(builder.commit(outputFileName, &ignoredOutGuid));
+    ::exit(0);
 }
 
 int main(int argc, char** argv) {
