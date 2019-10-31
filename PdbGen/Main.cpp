@@ -99,8 +99,6 @@ void GeneratePDB(ModuleInfo const& moduleInfo, char const* outputFileName)
     const char* moduleName = R"(C:\Users\localhost\Documents\GitHub\PdbGen\PdbTest\Debug\Main.obj)";
     // This one might matter. Unsure.
     const char* filename = R"(C:\Users\localhost\Documents\GitHub\PdbGen\Generated\Main.cpp)";
-    // I really hope this one doesn't matter.
-    const char* tmpFilename = R"(C:\Users\LOCALH~1\AppData\Local\Temp\lnk{CD77352F-E54C-4392-A458-0DE42662F1A3}.tmp)";
 
     PDBFileBuilder builder(llvmAllocator);
     ExitOnErr(builder.initialize(4096)); // Blocksize
@@ -223,7 +221,7 @@ void GeneratePDB(ModuleInfo const& moduleInfo, char const* outputFileName)
         }
     }
 
-    {
+    { // Unexpected symbol reader error
         SectionContrib sc;
         sc.Imod = 1;
         sc.ISect = 1;
@@ -234,29 +232,6 @@ void GeneratePDB(ModuleInfo const& moduleInfo, char const* outputFileName)
         sc.Characteristics = IMAGE_SCN_CNT_CODE | IMAGE_SCN_ALIGN_16BYTES | IMAGE_SCN_MEM_EXECUTE | IMAGE_SCN_MEM_READ;
         dbiBuilder.addSectionContrib(sc);
     }
-    {
-        SectionContrib sc;
-        sc.Imod = 2;
-        sc.ISect = 2;
-        sc.Off = 324;
-        sc.Size = 93;
-        sc.DataCrc = 0;
-        sc.RelocCrc = 0;
-        sc.Characteristics = IMAGE_SCN_CNT_INITIALIZED_DATA | IMAGE_SCN_ALIGN_4BYTES | IMAGE_SCN_MEM_READ;
-        dbiBuilder.addSectionContrib(sc);
-    }
-    {
-        SectionContrib sc;
-        sc.Imod = 2;
-        sc.ISect = 2;
-        sc.Off = 420;
-        sc.Size = 20;
-        sc.DataCrc = 0;
-        sc.RelocCrc = 0;
-        sc.Characteristics = IMAGE_SCN_CNT_INITIALIZED_DATA | IMAGE_SCN_ALIGN_4BYTES | IMAGE_SCN_MEM_READ;
-        dbiBuilder.addSectionContrib(sc);
-    }
-
 
     ExitOnErr(dbiBuilder.addDbgStream(
         DbgHeaderType::SectionHdr,
@@ -273,18 +248,8 @@ void GeneratePDB(ModuleInfo const& moduleInfo, char const* outputFileName)
         sym.Name = "_main";
         gsiBuilder.addPublicSymbol(sym);
     }
-    {
-        ProcRefSym sym(SymbolRecordKind::ProcRefSym);
-        sym.Module = 2;
-        sym.Name = "main";
-        sym.SymOffset = 148;
-        sym.SumName = 0;
-        gsiBuilder.addGlobalSymbol(sym);
-    }
 
     dbiBuilder.setPublicsStreamIndex(gsiBuilder.getPublicsStreamIndex());
-    // dbiBuilder.setGlobalsStreamIndex(gsiBuilder.getGlobalsStreamIndex());
-    // dbiBuilder.setSymbolRecordStreamIndex(gsiBuilder.getRecordStreamIdx());
 
     TpiStreamBuilder& tpiBuilder = builder.getTpiBuilder();
     tpiBuilder.setVersionHeader(PdbTpiV80);
