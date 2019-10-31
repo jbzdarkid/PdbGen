@@ -11,8 +11,8 @@ MSF:
   DirectoryBlocks: [ 19 ]
   NumStreams:      18
   FileSize:        81920
-StreamSizes:     [ 0, 122, 80, 735, 1304, 0, 0, 532, 576, 20, 8, 120, 32, 
-                   360, 384, 1060, 249, 8 ]
+StreamSizes:     [ 0, 122, 80, 935, 1304, 0, 0, 544, 576, 40, 16, 120, 
+                   32, 360, 384, 1060, 250, 48 ]
 StreamMap:
   - Stream:          [  ]
   - Stream:          [ 18 ]
@@ -393,7 +393,7 @@ PublicsStream:
              Blocks: [18]
   Stream  2 (  80 bytes): [TPI Stream]
              Blocks: [7]
-  Stream  3 ( 735 bytes): [DBI Stream]
+  Stream  3 ( 935 bytes): [DBI Stream]
              Blocks: [14]
   Stream  4 (1304 bytes): [IPI Stream]
              Blocks: [16]
@@ -401,13 +401,13 @@ PublicsStream:
              Blocks: []
   Stream  6 (   0 bytes): [Named Stream "/LinkInfo"]
              Blocks: []
-  Stream  7 ( 532 bytes): [Global Symbol Hash]
+  Stream  7 ( 544 bytes): [Global Symbol Hash]
              Blocks: [4]
   Stream  8 ( 576 bytes): [Public Symbol Hash]
              Blocks: [5]
-  Stream  9 (  20 bytes): [Symbol Records]
+  Stream  9 (  40 bytes): [Symbol Records]
              Blocks: [6]
-  Stream 10 (   8 bytes): [TPI Hash]
+  Stream 10 (  16 bytes): [TPI Hash]
              Blocks: [8]
   Stream 11 ( 120 bytes): [Section Header Data]
              Blocks: [9]
@@ -419,9 +419,9 @@ PublicsStream:
              Blocks: [12]
   Stream 15 (1060 bytes): [Module "* Linker *"]
              Blocks: [13]
-  Stream 16 ( 249 bytes): [Named Stream "/names"]
+  Stream 16 ( 250 bytes): [Named Stream "/names"]
              Blocks: [15]
-  Stream 17 (   8 bytes): [IPI Hash]
+  Stream 17 (  48 bytes): [IPI Hash]
              Blocks: [17]
 
 
@@ -515,35 +515,35 @@ Mod 0002 | `* Linker *`:
                         String Table                        
 ============================================================
    ID | String
-    1 | 'C:\Users\LOCALH~1\AppData\Local\Temp\lnk{CD77352F-E54C-4392-A458-0DE42662F1A3}.tmp'
-   84 | 'C:\Users\localhost\Documents\GitHub\PdbGen\PdbTest\Main.cpp'
-  144 | '$T0 $ebp = $eip $T0 4 + ^ = $ebp $T0 ^ = $esp $T0 8 + = '
+    2 | 'C:\Users\LOCALH~1\AppData\Local\Temp\lnk{CD77352F-E54C-4392-A458-0DE42662F1A3}.tmp'
+   85 | 'C:\Users\localhost\Documents\GitHub\PdbGen\PdbTest\Main.cpp'
+  145 | '$T0 $ebp = $eip $T0 4 + ^ = $ebp $T0 ^ = $esp $T0 8 + = '
   
   String Table Header:
     Signature: 4026462206
     Hash Version: 1
-    Name Buffer Size: 201
+    Name Buffer Size: 202
     
   Name Buffer (
-    0000: 00433A5C 55736572 735C4C4F 43414C48 7E315C41 70704461 74615C4C 6F63616C  |.C:\Users\LOCALH~1\AppData\Local|
-    0020: 5C54656D 705C6C6E 6B7B4344 37373335 32462D45 3534432D 34333932 2D413435  |\Temp\lnk{CD77352F-E54C-4392-A45|
-    0040: 382D3044 45343236 36324631 41337D2E 746D7000 433A5C55 73657273 5C6C6F63  |8-0DE42662F1A3}.tmp.C:\Users\loc|
-    0060: 616C686F 73745C44 6F63756D 656E7473 5C476974 4875625C 50646247 656E5C50  |alhost\Documents\GitHub\PdbGen\P|
-    0080: 64625465 73745C4D 61696E2E 63707000 24543020 24656270 203D2024 65697020  |dbTest\Main.cpp.$T0 $ebp = $eip |
-    00A0: 24543020 34202B20 5E203D20 24656270 20245430 205E203D 20246573 70202454  |$T0 4 + ^ = $ebp $T0 ^ = $esp $T|
-    00C0: 30203820 2B203D20 00                                                     |0 8 + = .|
+    0000: 0000433A 5C557365 72735C4C 4F43414C 487E315C 41707044 6174615C 4C6F6361  |..C:\Users\LOCALH~1\AppData\Loca|
+    0020: 6C5C5465 6D705C6C 6E6B7B43 44373733 3532462D 45353443 2D343339 322D4134  |l\Temp\lnk{CD77352F-E54C-4392-A4|
+    0040: 35382D30 44453432 36363246 3141337D 2E746D70 00433A5C 55736572 735C6C6F  |58-0DE42662F1A3}.tmp.C:\Users\lo|
+    0060: 63616C68 6F73745C 446F6375 6D656E74 735C4769 74487562 5C506462 47656E5C  |calhost\Documents\GitHub\PdbGen\|
+    0080: 50646254 6573745C 4D61696E 2E637070 00245430 20246562 70203D20 24656970  |PdbTest\Main.cpp.$T0 $ebp = $eip|
+    00A0: 20245430 2034202B 205E203D 20246562 70202454 30205E20 3D202465 73702024  | $T0 4 + ^ = $ebp $T0 ^ = $esp $|
+    00C0: 54302038 202B203D 2000                                                   |T0 8 + = .|
   )
   
   Hash Table:
     Bucket Count: 7
-    Bucket[0] : 1
-    Bucket[1] : 84
-    Bucket[2] : 0
+    Bucket[0] : 2
+    Bucket[1] : 1
+    Bucket[2] : 85
     Bucket[3] : 0
     Bucket[4] : 0
     Bucket[5] : 0
-    Bucket[6] : 144
-    Name Count: 3
+    Bucket[6] : 145
+    Name Count: 4
 
 
                           Modules                           
@@ -615,8 +615,8 @@ Mod 0002 | `* Linker *`:
                      Types (TPI Stream)                     
 ============================================================
   Showing 2 records
-  0x1000 | LF_ARGLIST [size = 8, hash = (not present)]
-  0x1001 | LF_PROCEDURE [size = 16, hash = (not present)]
+  0x1000 | LF_ARGLIST [size = 8, hash = 0x32484]
+  0x1001 | LF_PROCEDURE [size = 16, hash = 0x27EE9]
            return type = 0x0074 (int), # args = 0, param list = 0x1000
            calling conv = cdecl, options = None
   
@@ -633,19 +633,19 @@ Mod 0002 | `* Linker *`:
                      Types (IPI Stream)                     
 ============================================================
   Showing 10 records
-  0x1000 | LF_STRING_ID [size = 60, hash = (not present)] ID: <no type>, String: C:\Users\localhost\Documents\GitHub\PdbGen\PdbTest
-  0x1001 | LF_STRING_ID [size = 120, hash = (not present)] ID: <no type>, String: C:\Program Files (x86)\Microsoft Visual Studio\2019\Community\VC\Tools\MSVC\14.23.28105\bin\HostX86\x86\CL.exe
-  0x1002 | LF_STRING_ID [size = 20, hash = (not present)] ID: <no type>, String: Main.cpp
-  0x1003 | LF_STRING_ID [size = 76, hash = (not present)] ID: <no type>, String: C:\Users\localhost\Documents\GitHub\PdbGen\PdbTest\Debug\vc142.pdb
-  0x1004 | LF_STRING_ID [size = 268, hash = (not present)] ID: <no type>, String: -c -Zi -nologo -W3 -WX- -diagnostics:column -Od -D_MBCS -Gm- -MDd -GS- -Za -Zc:wchar_t- -Zc:forScope- -Zc:rvalueCast- -GR- -Gd -TP -analyze- -FC -Zl -errorreport:prompt -I"C:\Program Files (x86)\Microsoft Visual Studio\2019\Community\VC\Tools\MSVC\14.23.28105
-  0x1005 | LF_STRING_ID [size = 252, hash = (not present)] ID: <no type>, String: \include" -I"C:\Program Files (x86)\Microsoft Visual Studio\2019\Community\VC\Tools\MSVC\14.23.28105\atlmfc\include" -I"C:\Program Files (x86)\Microsoft Visual Studio\2019\Community\VC\Auxiliary\VS\include" -I"C:\Program Files (x86)\Windows
-  0x1006 | LF_STRING_ID [size = 252, hash = (not present)] ID: <no type>, String:  Kits\10\Include\10.0.18362.0\ucrt" -I"C:\Program Files (x86)\Windows Kits\10\Include\10.0.18362.0\um" -I"C:\Program Files (x86)\Windows Kits\10\Include\10.0.18362.0\shared" -I"C:\Program Files (x86)\Windows Kits\10\Include\10.0.18362.0\winrt"
-  0x1007 | LF_SUBSTR_LIST [size = 20, hash = (not present)]
+  0x1000 | LF_STRING_ID [size = 60, hash = 0x3BC85] ID: <no type>, String: C:\Users\localhost\Documents\GitHub\PdbGen\PdbTest
+  0x1001 | LF_STRING_ID [size = 120, hash = 0x17784] ID: <no type>, String: C:\Program Files (x86)\Microsoft Visual Studio\2019\Community\VC\Tools\MSVC\14.23.28105\bin\HostX86\x86\CL.exe
+  0x1002 | LF_STRING_ID [size = 20, hash = 0x2616B] ID: <no type>, String: Main.cpp
+  0x1003 | LF_STRING_ID [size = 76, hash = 0xE65E] ID: <no type>, String: C:\Users\localhost\Documents\GitHub\PdbGen\PdbTest\Debug\vc142.pdb
+  0x1004 | LF_STRING_ID [size = 268, hash = 0x3E79A] ID: <no type>, String: -c -Zi -nologo -W3 -WX- -diagnostics:column -Od -D_MBCS -Gm- -MDd -GS- -Za -Zc:wchar_t- -Zc:forScope- -Zc:rvalueCast- -GR- -Gd -TP -analyze- -FC -Zl -errorreport:prompt -I"C:\Program Files (x86)\Microsoft Visual Studio\2019\Community\VC\Tools\MSVC\14.23.28105
+  0x1005 | LF_STRING_ID [size = 252, hash = 0x3A15B] ID: <no type>, String: \include" -I"C:\Program Files (x86)\Microsoft Visual Studio\2019\Community\VC\Tools\MSVC\14.23.28105\atlmfc\include" -I"C:\Program Files (x86)\Microsoft Visual Studio\2019\Community\VC\Auxiliary\VS\include" -I"C:\Program Files (x86)\Windows
+  0x1006 | LF_STRING_ID [size = 252, hash = 0x3FFBE] ID: <no type>, String:  Kits\10\Include\10.0.18362.0\ucrt" -I"C:\Program Files (x86)\Windows Kits\10\Include\10.0.18362.0\um" -I"C:\Program Files (x86)\Windows Kits\10\Include\10.0.18362.0\shared" -I"C:\Program Files (x86)\Windows Kits\10\Include\10.0.18362.0\winrt"
+  0x1007 | LF_SUBSTR_LIST [size = 20, hash = 0x2027D]
            0x1004: `-c -Zi -nologo -W3 -WX- -diagnostics:column -Od -D_MBCS -Gm- -MDd -GS- -Za -Zc:wchar_t- -Zc:forScope- -Zc:rvalueCast- -GR- -Gd -TP -analyze- -FC -Zl -errorreport:prompt -I"C:\Program Files (x86)\Microsoft Visual Studio\2019\Community\VC\Tools\MSVC\14.23.28105`
            0x1005: `\include" -I"C:\Program Files (x86)\Microsoft Visual Studio\2019\Community\VC\Tools\MSVC\14.23.28105\atlmfc\include" -I"C:\Program Files (x86)\Microsoft Visual Studio\2019\Community\VC\Auxiliary\VS\include" -I"C:\Program Files (x86)\Windows`
            0x1006: ` Kits\10\Include\10.0.18362.0\ucrt" -I"C:\Program Files (x86)\Windows Kits\10\Include\10.0.18362.0\um" -I"C:\Program Files (x86)\Windows Kits\10\Include\10.0.18362.0\shared" -I"C:\Program Files (x86)\Windows Kits\10\Include\10.0.18362.0\winrt"`
-  0x1008 | LF_STRING_ID [size = 152, hash = (not present)] ID: <no type>, String:  -I"C:\Program Files (x86)\Windows Kits\10\Include\10.0.18362.0\cppwinrt" -IC:\Users\localhost\Documents\GitHub\PdbGen\PdbTest\Include\um -X
-  0x1009 | LF_BUILDINFO [size = 28, hash = (not present)]
+  0x1008 | LF_STRING_ID [size = 152, hash = 0x2DEC8] ID: <no type>, String:  -I"C:\Program Files (x86)\Windows Kits\10\Include\10.0.18362.0\cppwinrt" -IC:\Users\localhost\Documents\GitHub\PdbGen\PdbTest\Include\um -X
+  0x1009 | LF_BUILDINFO [size = 28, hash = 0x1ABDB]
            0x1000: `C:\Users\localhost\Documents\GitHub\PdbGen\PdbTest`
            0x1001: `C:\Program Files (x86)\Microsoft Visual Studio\2019\Community\VC\Tools\MSVC\14.23.28105\bin\HostX86\x86\CL.exe`
            0x1002: `Main.cpp`
@@ -665,6 +665,8 @@ Mod 0002 | `* Linker *`:
                        Global Symbols                       
 ============================================================
   Records
+      20 | S_PROCREF [size = 20] `main`
+           module = 2, sum name = 0, offset = 148
 
                        Public Symbols                       
 ============================================================
@@ -821,6 +823,21 @@ Mod 0002 | `* Linker *`:
 
                    Section Contributions                    
 ============================================================
+  SC[.text]   | mod = 2, 0001:0000, size = 10, data crc = 0, reloc crc = 0
+                IMAGE_SCN_CNT_CODE | IMAGE_SCN_MEM_EXECUTE | IMAGE_SCN_MEM_READ
+  SC[.text]   | mod = 1, 0001:0016, size = 59, data crc = 804367154, reloc crc = 0
+                IMAGE_SCN_CNT_CODE | IMAGE_SCN_ALIGN_16BYTES | IMAGE_SCN_MEM_EXECUTE | 
+                IMAGE_SCN_MEM_READ
+  SC[.rdata]  | mod = 2, 0002:0000, size = 56, data crc = 0, reloc crc = 0
+                IMAGE_SCN_CNT_INITIALIZED_DATA | IMAGE_SCN_MEM_READ
+  SC[.rdata]  | mod = 2, 0002:0324, size = 93, data crc = 0, reloc crc = 0
+                IMAGE_SCN_CNT_INITIALIZED_DATA | IMAGE_SCN_ALIGN_4BYTES | IMAGE_SCN_MEM_READ
+  SC[.rdata]  | mod = 2, 0002:0420, size = 20, data crc = 0, reloc crc = 0
+                IMAGE_SCN_CNT_INITIALIZED_DATA | IMAGE_SCN_ALIGN_4BYTES | IMAGE_SCN_MEM_READ
+  SC[.rsrc]   | mod = 0, 0003:0000, size = 88, data crc = 0, reloc crc = 0
+                IMAGE_SCN_CNT_INITIALIZED_DATA | IMAGE_SCN_MEM_READ
+  SC[.rsrc]   | mod = 0, 0003:0368, size = 384, data crc = 0, reloc crc = 0
+                IMAGE_SCN_CNT_INITIALIZED_DATA | IMAGE_SCN_MEM_READ
 
                         Section Map                         
 ============================================================

@@ -7,9 +7,10 @@
 #pragma warning(disable : 4624)
 #include <llvm/DebugInfo/CodeView/StringsAndChecksums.h>
 #include <llvm/DebugInfo/CodeView/SymbolSerializer.h>
-#include <llvm/DebugInfo/CodeView/AppendingTypeTableBuilder.h>
+#include <llvm/DebugInfo/CodeView/GlobalTypeTableBuilder.h>
 #include <llvm/DebugInfo/MSF/MSFBuilder.h>
 #include <llvm/DebugInfo/PDB/Native/DbiModuleDescriptorBuilder.h>
+#include <llvm/DebugInfo/PDB/Native/TpiHashing.h>
 #include <llvm/DebugInfo/PDB/Native/DbiStreamBuilder.h>
 #include <llvm/DebugInfo/PDB/Native/GSIStreamBuilder.h>
 #include <llvm/DebugInfo/PDB/Native/InfoStreamBuilder.h>
@@ -18,9 +19,9 @@
 #include <llvm/Object/Binary.h>
 #include <llvm/Object/COFF.h>
 
-#include <llvm/ObjectYAML/CodeViewYAMLTypes.h>
-
 #pragma warning(pop)
+
+#include <cstdlib>
 
 #include "MD5.h"
 
@@ -29,6 +30,9 @@ using namespace llvm::pdb;
 using namespace llvm::COFF;
 using namespace llvm::codeview;
 
+// I hate globals.
+llvm::BumpPtrAllocator llvmAllocator;
+GlobalTypeTableBuilder ttb(llvmAllocator);
 llvm::ExitOnError ExitOnErr;
 
 struct ModuleInfo
@@ -94,15 +98,13 @@ PublicSym32 CreatePublicSymbol(const char* name, int32_t offset) {
     return symbol;
 }
 
-llvm::BumpPtrAllocator llvmAllocator;
-
 template <typename SymType>
 void AddSymbol(llvm::pdb::DbiModuleDescriptorBuilder& modiBuilder, SymType& sym) {
     CVSymbol cvSym = SymbolSerializer::writeOneSymbol(sym, llvmAllocator, CodeViewContainer::Pdb);
     modiBuilder.addSymbol(cvSym);
 }
 
-void GeneratePDB(ModuleInfo const& moduleInfo, const vector<PublicSym32>& publics, char const* outputFileName)
+void GeneratePDB(ModuleInfo const& moduleInfo, char const* outputFileName)
 {
     // Name doesn't actually matter, since there is no real object file.
     const char* moduleName = R"(C:\Users\localhost\Documents\GitHub\PdbGen\PdbTest\Debug\Main.obj)";
@@ -135,6 +137,7 @@ void GeneratePDB(ModuleInfo const& moduleInfo, const vector<PublicSym32>& public
     dbiBuilder.setMachineType(moduleInfo.is64Bit ? PDB_Machine::Amd64 : PDB_Machine::x86);
 
     DebugStringTableSubsection strings;
+    strings.insert("");
     strings.insert(tmpFilename);
     strings.insert(filename);
     strings.insert("$T0 $ebp = $eip $T0 4 + ^ = $ebp $T0 ^ = $esp $T0 8 + = ");
@@ -420,27 +423,121 @@ void GeneratePDB(ModuleInfo const& moduleInfo, const vector<PublicSym32>& public
     const vector<SecMapEntry> sectionMap = DbiStreamBuilder::createSectionMap(moduleInfo.sections);
     dbiBuilder.setSectionMap(sectionMap);
 
+    {
+        SectionContrib sc;
+        sc.Imod = 2;
+        sc.ISect = 1;
+        sc.Off = 0;
+        sc.Size = 10;
+        sc.DataCrc = 0;
+        sc.RelocCrc = 0;
+        sc.Characteristics = IMAGE_SCN_CNT_CODE | IMAGE_SCN_MEM_EXECUTE | IMAGE_SCN_MEM_READ;
+        dbiBuilder.addSectionContrib(sc);
+    }
+    {
+        SectionContrib sc;
+        sc.Imod = 1;
+        sc.ISect = 1;
+        sc.Off = 16;
+        sc.Size = 59;
+        sc.DataCrc = 804367154;
+        sc.RelocCrc = 0;
+        sc.Characteristics = IMAGE_SCN_CNT_CODE | IMAGE_SCN_ALIGN_16BYTES | IMAGE_SCN_MEM_EXECUTE | IMAGE_SCN_MEM_READ;
+        dbiBuilder.addSectionContrib(sc);
+    }
+    {
+        SectionContrib sc;
+        sc.Imod = 2;
+        sc.ISect = 2;
+        sc.Off = 0;
+        sc.Size = 56;
+        sc.DataCrc = 0;
+        sc.RelocCrc = 0;
+        sc.Characteristics = IMAGE_SCN_CNT_INITIALIZED_DATA | IMAGE_SCN_MEM_READ;
+        dbiBuilder.addSectionContrib(sc);
+    }
+    {
+        SectionContrib sc;
+        sc.Imod = 2;
+        sc.ISect = 2;
+        sc.Off = 324;
+        sc.Size = 93;
+        sc.DataCrc = 0;
+        sc.RelocCrc = 0;
+        sc.Characteristics = IMAGE_SCN_CNT_INITIALIZED_DATA | IMAGE_SCN_ALIGN_4BYTES | IMAGE_SCN_MEM_READ;
+        dbiBuilder.addSectionContrib(sc);
+    }
+    {
+        SectionContrib sc;
+        sc.Imod = 2;
+        sc.ISect = 2;
+        sc.Off = 420;
+        sc.Size = 20;
+        sc.DataCrc = 0;
+        sc.RelocCrc = 0;
+        sc.Characteristics = IMAGE_SCN_CNT_INITIALIZED_DATA | IMAGE_SCN_ALIGN_4BYTES | IMAGE_SCN_MEM_READ;
+        dbiBuilder.addSectionContrib(sc);
+    }
+    {
+        SectionContrib sc;
+        sc.Imod = 0;
+        sc.ISect = 3;
+        sc.Off = 0;
+        sc.Size = 88;
+        sc.DataCrc = 0;
+        sc.RelocCrc = 0;
+        sc.Characteristics = IMAGE_SCN_CNT_INITIALIZED_DATA | IMAGE_SCN_MEM_READ;
+        dbiBuilder.addSectionContrib(sc);
+    }
+    {
+        SectionContrib sc;
+        sc.Imod = 0;
+        sc.ISect = 3;
+        sc.Off = 368;
+        sc.Size = 384;
+        sc.DataCrc = 0;
+        sc.RelocCrc = 0;
+        sc.Characteristics = IMAGE_SCN_CNT_INITIALIZED_DATA | IMAGE_SCN_MEM_READ;
+        dbiBuilder.addSectionContrib(sc);
+    }
+
+
     ExitOnErr(dbiBuilder.addDbgStream(
         DbgHeaderType::SectionHdr,
         {reinterpret_cast<const uint8_t*>(moduleInfo.sections.data()),
          moduleInfo.sections.size() * sizeof(moduleInfo.sections[0])}));
 
     GSIStreamBuilder& gsiBuilder = builder.getGsiBuilder();
-    for (const PublicSym32& pub : publics)
-        gsiBuilder.addPublicSymbol(pub);
+    // Base addr is 0x4F1000
+    {
+        PublicSym32 sym(SymbolRecordKind::PublicSym32);
+        sym.Flags = PublicSymFlags::Function;
+        sym.Offset = 16;
+        sym.Segment = 1;
+        sym.Name = "_main";
+        gsiBuilder.addPublicSymbol(sym);
+    }
+    {
+        ProcRefSym sym(SymbolRecordKind::ProcRefSym);
+        sym.Module = 2;
+        sym.Name = "main";
+        sym.SymOffset = 148;
+        sym.SumName = 0;
+        gsiBuilder.addGlobalSymbol(sym);
+    }
+
     dbiBuilder.setPublicsStreamIndex(gsiBuilder.getPublicsStreamIndex());
     // dbiBuilder.setGlobalsStreamIndex(gsiBuilder.getGlobalsStreamIndex());
     // dbiBuilder.setSymbolRecordStreamIndex(gsiBuilder.getRecordStreamIdx());
 
     TpiStreamBuilder& tpiBuilder = builder.getTpiBuilder();
     tpiBuilder.setVersionHeader(PdbTpiV80);
-
     {
-        AppendingTypeTableBuilder attb(llvmAllocator);
         {
             ArgListRecord record(TypeRecordKind::ArgList);
             record.ArgIndices = {};
-            tpiBuilder.addTypeRecord(attb.getType(attb.writeLeafType(record)).RecordData, llvm::None);
+            CVType cvt = ttb.getType(ttb.writeLeafType(record));
+            tpiBuilder.addTypeRecord(cvt.RecordData, ExitOnErr(hashTypeRecord(cvt)));
         }
         {
             ProcedureRecord record(TypeRecordKind::Procedure);
@@ -449,7 +546,8 @@ void GeneratePDB(ModuleInfo const& moduleInfo, const vector<PublicSym32>& public
             record.Options = FunctionOptions::None;
             record.ParameterCount = 0;
             record.ArgumentList = TypeIndex(TypeIndex::FirstNonSimpleIndex);
-            tpiBuilder.addTypeRecord(attb.getType(attb.writeLeafType(record)).RecordData, llvm::None);
+            CVType cvt = ttb.getType(ttb.writeLeafType(record));
+            tpiBuilder.addTypeRecord(cvt.RecordData, ExitOnErr(hashTypeRecord(cvt)));
         }
     }
 
@@ -471,78 +569,82 @@ void GeneratePDB(ModuleInfo const& moduleInfo, const vector<PublicSym32>& public
     ipiBuilder.setVersionHeader(PdbTpiV80);
 
     {
-        AppendingTypeTableBuilder attb(llvmAllocator);
         {
             StringIdRecord record(TypeRecordKind::StringId);
             record.Id = TypeIndex(0);
             record.String = R"(C:\Users\localhost\Documents\GitHub\PdbGen\PdbTest)";
-            ipiBuilder.addTypeRecord(attb.getType(attb.writeLeafType(record)).RecordData, llvm::None);
+            CVType cvt = ttb.getType(ttb.writeLeafType(record));
+            ipiBuilder.addTypeRecord(cvt.RecordData, ExitOnErr(hashTypeRecord(cvt)));
         }
         {
             StringIdRecord record(TypeRecordKind::StringId);
             record.Id = TypeIndex(0);
             record.String = R"#(C:\Program Files (x86)\Microsoft Visual Studio\2019\Community\VC\Tools\MSVC\14.23.28105\bin\HostX86\x86\CL.exe)#";
-            ipiBuilder.addTypeRecord(attb.getType(attb.writeLeafType(record)).RecordData, llvm::None);
+            CVType cvt = ttb.getType(ttb.writeLeafType(record));
+            ipiBuilder.addTypeRecord(cvt.RecordData, ExitOnErr(hashTypeRecord(cvt)));
         }
         {
             StringIdRecord record(TypeRecordKind::StringId);
             record.Id = TypeIndex(0);
             record.String = R"(Main.cpp)";
-            ipiBuilder.addTypeRecord(attb.getType(attb.writeLeafType(record)).RecordData, llvm::None);
+            CVType cvt = ttb.getType(ttb.writeLeafType(record));
+            ipiBuilder.addTypeRecord(cvt.RecordData, ExitOnErr(hashTypeRecord(cvt)));
         }
         {
             StringIdRecord record(TypeRecordKind::StringId);
             record.Id = TypeIndex(0);
             record.String = R"(C:\Users\localhost\Documents\GitHub\PdbGen\PdbTest\Debug\vc142.pdb)";
-            ipiBuilder.addTypeRecord(attb.getType(attb.writeLeafType(record)).RecordData, llvm::None);
+            CVType cvt = ttb.getType(ttb.writeLeafType(record));
+            ipiBuilder.addTypeRecord(cvt.RecordData, ExitOnErr(hashTypeRecord(cvt)));
         }
         {
             StringIdRecord record(TypeRecordKind::StringId);
             record.Id = TypeIndex(0);
             record.String = R"#(-c -Zi -nologo -W3 -WX- -diagnostics:column -Od -D_MBCS -Gm- -MDd -GS- -Za -Zc:wchar_t- -Zc:forScope- -Zc:rvalueCast- -GR- -Gd -TP -analyze- -FC -Zl -errorreport:prompt -I"C:\Program Files (x86)\Microsoft Visual Studio\2019\Community\VC\Tools\MSVC\14.23.28105)#";
-            ipiBuilder.addTypeRecord(attb.getType(attb.writeLeafType(record)).RecordData, llvm::None);
+            CVType cvt = ttb.getType(ttb.writeLeafType(record));
+            ipiBuilder.addTypeRecord(cvt.RecordData, ExitOnErr(hashTypeRecord(cvt)));
         }
         {
             StringIdRecord record(TypeRecordKind::StringId);
             record.Id = TypeIndex(0);
             record.String = R"#(\include" -I"C:\Program Files (x86)\Microsoft Visual Studio\2019\Community\VC\Tools\MSVC\14.23.28105\atlmfc\include" -I"C:\Program Files (x86)\Microsoft Visual Studio\2019\Community\VC\Auxiliary\VS\include" -I"C:\Program Files (x86)\Windows)#";
-            ipiBuilder.addTypeRecord(attb.getType(attb.writeLeafType(record)).RecordData, llvm::None);
+            CVType cvt = ttb.getType(ttb.writeLeafType(record));
+            ipiBuilder.addTypeRecord(cvt.RecordData, ExitOnErr(hashTypeRecord(cvt)));
         }
         {
             StringIdRecord record(TypeRecordKind::StringId);
             record.Id = TypeIndex(0);
             record.String = R"#( Kits\10\Include\10.0.18362.0\ucrt" -I"C:\Program Files (x86)\Windows Kits\10\Include\10.0.18362.0\um" -I"C:\Program Files (x86)\Windows Kits\10\Include\10.0.18362.0\shared" -I"C:\Program Files (x86)\Windows Kits\10\Include\10.0.18362.0\winrt")#";
-            ipiBuilder.addTypeRecord(attb.getType(attb.writeLeafType(record)).RecordData, llvm::None);
+            CVType cvt = ttb.getType(ttb.writeLeafType(record));
+            ipiBuilder.addTypeRecord(cvt.RecordData, ExitOnErr(hashTypeRecord(cvt)));
         }
         {
             StringListRecord record(TypeRecordKind::StringList);
             record.StringIndices = {TypeIndex(0x1004), TypeIndex(0x1005), TypeIndex(0x1006)};
-            ipiBuilder.addTypeRecord(attb.getType(attb.writeLeafType(record)).RecordData, llvm::None);
+            CVType cvt = ttb.getType(ttb.writeLeafType(record));
+            ipiBuilder.addTypeRecord(cvt.RecordData, ExitOnErr(hashTypeRecord(cvt)));
         }
         {
             StringIdRecord record(TypeRecordKind::StringId);
             record.Id = TypeIndex(0);
             record.String = R"#( -I"C:\Program Files (x86)\Windows Kits\10\Include\10.0.18362.0\cppwinrt" -IC:\Users\localhost\Documents\GitHub\PdbGen\PdbTest\Include\um -X)#";
-            ipiBuilder.addTypeRecord(attb.getType(attb.writeLeafType(record)).RecordData, llvm::None);
+            CVType cvt = ttb.getType(ttb.writeLeafType(record));
+            ipiBuilder.addTypeRecord(cvt.RecordData, ExitOnErr(hashTypeRecord(cvt)));
         }
         {
             BuildInfoRecord record(TypeRecordKind::BuildInfo);
             record.ArgIndices = {TypeIndex(0x1000), TypeIndex(0x1001), TypeIndex(0x1002), TypeIndex(0x1003), TypeIndex(0x1008)};
-            ipiBuilder.addTypeRecord(attb.getType(attb.writeLeafType(record)).RecordData, llvm::None);
+            CVType cvt = ttb.getType(ttb.writeLeafType(record));
+            ipiBuilder.addTypeRecord(cvt.RecordData, ExitOnErr(hashTypeRecord(cvt)));
         }
     }
 
     /* Things that I'm potentially missing:
         40 bytes of "Old MSF directory"
-        4 bytes of PDB Stream
+        +6 bytes of PDB Stream
         269 bytes of DBI Stream
-        12 bytes of Global Symbol Hash -> Hash Adjusters
         12 bytes of Public Symbol Hash
-        20 bytes of Symbol Records
-        1 byte of /names stream
         4 bytes of Main.obj module
-        8 bytes of TPI hashes -> See TypeHashingTest.cpp
-        40 bytes of IPI hashes -> See TypeHashingTest.cpp
     */
     /*                    Modules
 ============================================================
@@ -587,18 +689,13 @@ pdb file ni: 1 `C:\Users\localhost\Documents\GitHub\PdbGen\PdbTest\Debug\PdbTest
     GUID ignoredOutGuid;
     // Also commits all other stream builders.
     ExitOnErr(builder.commit(outputFileName, &ignoredOutGuid));
-    ::exit(0);
 }
 
 int main(int argc, char** argv) {
     ModuleInfo moduleInfo = ReadModuleInfo("C:/Users/localhost/Documents/GitHub/PdbGen/PdbTest/Debug/PdbTest.exe");
 
-    // 0x4F1000
-    vector<PublicSym32> publics = {
-        CreatePublicSymbol("_main", 16)
-    };
-    sort(publics.begin(), publics.end(),
-            [](auto const& l, auto const& r) { return l.Name < r.Name; });
+    // sort(publics.begin(), publics.end(),
+    //         [](auto const& l, auto const& r) { return l.Name < r.Name; });
 
-    GeneratePDB(moduleInfo, publics, "../Generated/PdbTest.pdb");
+    GeneratePDB(moduleInfo, "../Generated/PdbTest.pdb");
 }
