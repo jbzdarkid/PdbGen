@@ -1,32 +1,24 @@
 #pragma warning(push)
-#pragma warning(disable : 4141)
 #pragma warning(disable : 4146)
 #pragma warning(disable : 4244)
 #pragma warning(disable : 4267)
-#pragma warning(disable : 4996)
 #pragma warning(disable : 4624)
-#include <llvm/DebugInfo/CodeView/StringsAndChecksums.h>
+#pragma warning(disable : 4996)
 #include <llvm/DebugInfo/CodeView/SymbolSerializer.h>
-#include <llvm/DebugInfo/CodeView/GlobalTypeTableBuilder.h>
 #include <llvm/DebugInfo/MSF/MSFBuilder.h>
 #include <llvm/DebugInfo/PDB/Native/DbiModuleDescriptorBuilder.h>
-#include <llvm/DebugInfo/PDB/Native/TpiHashing.h>
 #include <llvm/DebugInfo/PDB/Native/DbiStreamBuilder.h>
 #include <llvm/DebugInfo/PDB/Native/GSIStreamBuilder.h>
 #include <llvm/DebugInfo/PDB/Native/InfoStreamBuilder.h>
 #include <llvm/DebugInfo/PDB/Native/PDBFileBuilder.h>
 #include <llvm/DebugInfo/PDB/Native/TpiStreamBuilder.h>
-#include <llvm/Object/Binary.h>
 #include <llvm/Object/COFF.h>
-
 #pragma warning(pop)
 
-#include "MD5.h"
-
-using namespace std;
 using namespace llvm::pdb;
 using namespace llvm::COFF;
 using namespace llvm::codeview;
+using namespace llvm::sys::fs;
 
 // I hate globals.
 llvm::BumpPtrAllocator llvmAllocator;
@@ -35,13 +27,13 @@ llvm::ExitOnError ExitOnErr;
 struct ModuleInfo
 {
     bool is64Bit{};
-    vector<llvm::object::coff_section> sections;
-    llvm::codeview::GUID guid{};
+    std::vector<llvm::object::coff_section> sections;
+    GUID guid{};
     uint32_t age{};
     uint32_t signature{};
 };
 
-ModuleInfo ReadModuleInfo(const string& modulePath)
+ModuleInfo ReadModuleInfo(const std::string& modulePath)
 {
     using namespace llvm;
     using namespace llvm::object;
@@ -53,10 +45,10 @@ ModuleInfo ReadModuleInfo(const string& modulePath)
         ExitOnErr(expectedBinary.takeError());
     }
 
-    OwningBinary<Binary> binary = move(*expectedBinary);
+    OwningBinary<Binary> binary = std::move(*expectedBinary);
 
     if (!binary.getBinary()->isCOFF()) {
-        ExitOnErr(errorCodeToError(make_error_code(errc::not_supported)));
+        ExitOnErr(errorCodeToError(make_error_code(std::errc::not_supported)));
     }
 
     const auto obj = llvm::cast<COFFObjectFile>(binary.getBinary());
@@ -94,8 +86,10 @@ void GeneratePDB(char const* outputPDB)
 {
     ModuleInfo moduleInfo = ReadModuleInfo("C:/Users/localhost/Documents/GitHub/PdbGen/PdbTest/Debug/PdbTest.exe");
 
-    const char* moduleName = R"(C:\Users\localhost\Documents\GitHub\PdbGen\PdbTest\Debug\Main.obj)"; // Immutable
-    const char* filename = R"(C:\Users\localhost\Documents\GitHub\PdbGen\Generated\Main.cpp)";
+    const char* filename = "C:/Users/localhost/Documents/Github/PdbGen/Generated/Main.cpp";
+    // Base address is 0x4F1000
+    int32_t funcStart = 0x10; // Offset from the base address
+    int32_t funcEnd = 59; // Function length (Total instruction count, including ret)
 
     PDBFileBuilder builder(llvmAllocator);
     ExitOnErr(builder.initialize(4096)); // Blocksize
@@ -113,46 +107,37 @@ void GeneratePDB(char const* outputPDB)
 
     DbiStreamBuilder& dbiBuilder = builder.getDbiBuilder();
     dbiBuilder.setVersionHeader(PdbDbiV70);
-    dbiBuilder.setAge(moduleInfo.age);
-    dbiBuilder.setBuildNumber(36375);
-    dbiBuilder.setPdbDllVersion(28106);
-    dbiBuilder.setPdbDllRbld(4);
-    dbiBuilder.setFlags(1);
-    dbiBuilder.setMachineType(moduleInfo.is64Bit ? PDB_Machine::Amd64 : PDB_Machine::x86);
 
     ExitOnErr(dbiBuilder.addModuleInfo("* Linker Generated Manifest RES *"));
-    {
-        SectionContrib sc;
-        sc.Imod = 1;
-        sc.ISect = 1;
-        sc.Off = 16;
-        sc.Size = 59;
-        sc.Characteristics = IMAGE_SCN_CNT_CODE | IMAGE_SCN_ALIGN_16BYTES | IMAGE_SCN_MEM_EXECUTE | IMAGE_SCN_MEM_READ;
-        dbiBuilder.addSectionContrib(sc);
-    }
+    SectionContrib sc{};
+    sc.Imod = 1;
+    sc.ISect = 1;
+    sc.Off = funcStart;
+    sc.Size = funcEnd;
+    sc.Characteristics = IMAGE_SCN_CNT_CODE | IMAGE_SCN_ALIGN_16BYTES | IMAGE_SCN_MEM_EXECUTE | IMAGE_SCN_MEM_READ;
+    dbiBuilder.addSectionContrib(sc);
 
     DebugStringTableSubsection strings; // Declared outside because this object crashes during the destructor
 
-    { // Module: Main.obj
-        DbiModuleDescriptorBuilder& module = ExitOnErr(dbiBuilder.addModuleInfo(moduleName));
-        module.setObjFileName(moduleName);
-        // Add files to module (presumably necessary to associate source code lines)
+    {
+        DbiModuleDescriptorBuilder& module = ExitOnErr(dbiBuilder.addModuleInfo("D:/dummy.obj"));
+        module.setObjFileName("D:/dummy.obj");
         ExitOnErr(dbiBuilder.addModuleSourceFile(module, filename));
 
-        auto checksums = make_shared<DebugChecksumsSubsection>(strings);
+        auto checksums = std::make_shared<DebugChecksumsSubsection>(strings);
         int FD;
-        if (auto ec = llvm::sys::fs::openFileForRead(filename, FD, llvm::sys::fs::OpenFlags::OF_None))
+        if (auto ec = openFileForRead(filename, FD, OpenFlags::OF_None))
             ExitOnErr(llvm::errorCodeToError(ec));
-        auto result = llvm::sys::fs::md5_contents(FD);
+        auto result = md5_contents(FD);
         if (!result)
             ExitOnErr(llvm::errorCodeToError(result.getError()));
         checksums->addChecksum(filename, FileChecksumKind::MD5, result.get().Bytes);
         module.addDebugSubsection(checksums);
 
-        auto debugSubsection = make_shared<DebugLinesSubsection>(*checksums, strings);
+        auto debugSubsection = std::make_shared<DebugLinesSubsection>(*checksums, strings);
         debugSubsection->createBlock(filename);
-        debugSubsection->setCodeSize(59); // Function length (Total instruction count, including ret)
-        debugSubsection->setRelocationAddress(1, 16); // Offset from the program base
+        debugSubsection->setCodeSize(funcEnd);
+        debugSubsection->setRelocationAddress(1, funcStart);
         debugSubsection->setFlags(LineFlags::LF_None);
 
         debugSubsection->addLineInfo(0, LineInfo(1, 1, true)); // Offset, Start, End, isStatement
@@ -167,7 +152,7 @@ void GeneratePDB(char const* outputPDB)
 
         {
             auto sym = ObjNameSym(SymbolRecordKind::ObjNameSym);
-            sym.Name = moduleName;
+            sym.Name = "C:/Users/localhost/Documents/GitHub/PdbGen/PdbTest/Debug/asdf.obj"; // semi-immutable for some awful reason
             AddSymbol(module, sym);
         }
         {
@@ -183,7 +168,7 @@ void GeneratePDB(char const* outputPDB)
         }
         {
             auto sym = UsingNamespaceSym(SymbolRecordKind::UsingNamespaceSym);
-            sym.Name = "std";
+            // sym.Name = "std";
             AddSymbol(module, sym);
         }
         {
@@ -191,13 +176,17 @@ void GeneratePDB(char const* outputPDB)
             sym.Parent = 0;
             sym.End = 240;
             sym.Next = 0;
-            sym.CodeSize = 59;
-            // sym.DbgStart = 4;
-            // sym.DbgEnd = 55;
-            sym.CodeOffset = 16;
+            sym.CodeSize = funcEnd;
+            sym.CodeOffset = funcStart;
             sym.Segment = 1;
-            // sym.Flags = ProcSymFlags::HasFP;
             sym.Name = "main"; // Immutable -- maybe because this is an entry point?
+            AddSymbol(module, sym);
+        }
+        {
+            auto sym = BPRelativeSym(SymbolRecordKind::BPRelativeSym);
+            sym.Offset = -4;
+            sym.Type = TypeIndex(SimpleTypeKind::Int16); // Mutable!
+            sym.Name = "b"; // Mutable!
             AddSymbol(module, sym);
         }
         {
@@ -205,38 +194,22 @@ void GeneratePDB(char const* outputPDB)
             sym.TotalFrameBytes = 4;
             AddSymbol(module, sym);
         }
-        {
-            auto sym = BPRelativeSym(SymbolRecordKind::BPRelativeSym);
-            sym.Offset = -4;
-            sym.Type = TypeIndex(SimpleTypeKind::Int32); // Mutable!
-            sym.Name = "b"; // Mutable! (good)
-            AddSymbol(module, sym);
-        }
     }
 
-    ExitOnErr(dbiBuilder.addDbgStream(
-        DbgHeaderType::SectionHdr,
-        {reinterpret_cast<const uint8_t*>(moduleInfo.sections.data()),
-         moduleInfo.sections.size() * sizeof(moduleInfo.sections[0])}));
+    ExitOnErr(dbiBuilder.addDbgStream(DbgHeaderType::SectionHdr, {
+        reinterpret_cast<const uint8_t*>(moduleInfo.sections.data()),
+        moduleInfo.sections.size() * sizeof(moduleInfo.sections[0])
+    }));
 
     GSIStreamBuilder& gsiBuilder = builder.getGsiBuilder();
-    // Base addr is 0x4F1000
     {
         PublicSym32 sym(SymbolRecordKind::PublicSym32);
         sym.Flags = PublicSymFlags::Function;
-        sym.Offset = 16;
+        sym.Offset = funcStart;
         sym.Segment = 1;
         sym.Name = "_main";
         gsiBuilder.addPublicSymbol(sym);
     }
-
-    dbiBuilder.setPublicsStreamIndex(gsiBuilder.getPublicsStreamIndex());
-
-    TpiStreamBuilder& tpiBuilder = builder.getTpiBuilder();
-    tpiBuilder.setVersionHeader(PdbTpiV80);
-
-    TpiStreamBuilder& ipiBuilder = builder.getIpiBuilder();
-    ipiBuilder.setVersionHeader(PdbTpiV80);
 
     GUID ignoredOutGuid;
     // Also commits all other stream builders.

@@ -133,13 +133,9 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="Main.cpp" />
-    <ClCompile Include="MD5.cpp" />
   </ItemGroup>
   <ItemGroup>
     <None Include="LLVMPDB.props" />
-  </ItemGroup>
-  <ItemGroup>
-    <ClInclude Include="MD5.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
