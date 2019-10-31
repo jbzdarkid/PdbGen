@@ -90,8 +90,10 @@ void AddSymbol(llvm::pdb::DbiModuleDescriptorBuilder& modiBuilder, SymType& sym)
     modiBuilder.addSymbol(cvSym);
 }
 
-void GeneratePDB(ModuleInfo const& moduleInfo, char const* outputFileName)
+void GeneratePDB(char const* outputPDB)
 {
+    ModuleInfo moduleInfo = ReadModuleInfo("C:/Users/localhost/Documents/GitHub/PdbGen/PdbTest/Debug/PdbTest.exe");
+
     const char* moduleName = R"(C:\Users\localhost\Documents\GitHub\PdbGen\PdbTest\Debug\Main.obj)"; // Immutable
     const char* filename = R"(C:\Users\localhost\Documents\GitHub\PdbGen\Generated\Main.cpp)";
 
@@ -238,15 +240,10 @@ void GeneratePDB(ModuleInfo const& moduleInfo, char const* outputFileName)
 
     GUID ignoredOutGuid;
     // Also commits all other stream builders.
-    ExitOnErr(builder.commit(outputFileName, &ignoredOutGuid));
+    ExitOnErr(builder.commit(outputPDB, &ignoredOutGuid));
     ::exit(0);
 }
 
 int main(int argc, char** argv) {
-    ModuleInfo moduleInfo = ReadModuleInfo("C:/Users/localhost/Documents/GitHub/PdbGen/PdbTest/Debug/PdbTest.exe");
-
-    // sort(publics.begin(), publics.end(),
-    //         [](auto const& l, auto const& r) { return l.Name < r.Name; });
-
-    GeneratePDB(moduleInfo, "../Generated/PdbTest.pdb");
+    GeneratePDB("../Generated/PdbTest.pdb");
 }
