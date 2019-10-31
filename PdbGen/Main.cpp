@@ -272,7 +272,7 @@ void GeneratePDB(ModuleInfo const& moduleInfo, char const* outputFileName)
         }
     }
 
-    ExitOnErr(builder.addNamedStream("/src/headerblock", ""));
+    //ExitOnErr(builder.addNamedStream("/src/headerblock", ""));
 
     TpiStreamBuilder& ipiBuilder = builder.getIpiBuilder();
     ipiBuilder.setVersionHeader(PdbTpiV80);
