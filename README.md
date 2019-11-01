@@ -1,7 +1,7 @@
 Fork of PdbGen -- attempting to get these things working:
-- [ ] line numbers
+- [X] line numbers
 - [X] function names
-- [ ] local variables
+- [X] local variables
 - [ ] function arguments
 - [ ] type information
 - [ ] static strings

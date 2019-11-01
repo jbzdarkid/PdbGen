@@ -211,6 +211,13 @@ void GeneratePDB(char const* outputPDB)
         gsiBuilder.addPublicSymbol(sym);
     }
 
+    // The TPI and IPI streams aren't strictly necessary... but pdbutil fails if they're not present.
+    TpiStreamBuilder& tpiBuilder = builder.getTpiBuilder();
+    tpiBuilder.setVersionHeader(PdbTpiV80);
+
+    TpiStreamBuilder& ipiBuilder = builder.getIpiBuilder();
+    ipiBuilder.setVersionHeader(PdbTpiV80);
+
     GUID ignoredOutGuid;
     // Also commits all other stream builders.
     ExitOnErr(builder.commit(outputPDB, &ignoredOutGuid));
