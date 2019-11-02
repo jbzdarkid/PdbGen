@@ -23,4 +23,6 @@ with open('Generated/real.yaml', 'wb') as f:
 import shutil
 
 shutil.copy(root + 'PdbGen/PdbTest/Debug/PdbTest.exe', root + 'PdbGen/Generated/PdbTest.exe')
+shutil.copy(root + 'PdbGen/PdbTest/Debug/_PdbTest.pdb', root + 'PdbGen/Generated/_PdbTest.pdb')
 shutil.copy(root + 'PdbGen/PdbTest/Main.cpp', root + 'PdbGen/Generated/Main.cpp')
+
