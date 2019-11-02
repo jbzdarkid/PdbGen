@@ -143,6 +143,15 @@ void GeneratePDB(ModuleInfo const& moduleInfo, char const* outputFileName)
     strings.insert("$T0 $ebp = $eip $T0 4 + ^ = $ebp $T0 ^ = $esp $T0 8 + = ");
     builder.getStringTableBuilder().setStrings(strings); // Must be after inserting strings. Should probably assert that this isn't resized at the end (i.e. nobody adds more strings)
 
+    const vector<SecMapEntry> sectionMap = DbiStreamBuilder::createSectionMap(moduleInfo.sections);
+    dbiBuilder.setSectionMap(sectionMap);
+    ExitOnErr(dbiBuilder.addDbgStream(
+        DbgHeaderType::SectionHdr,
+        {reinterpret_cast<const uint8_t*>(moduleInfo.sections.data()),
+         moduleInfo.sections.size() * sizeof(moduleInfo.sections[0])}));
+
+    GSIStreamBuilder& gsiBuilder = builder.getGsiBuilder();
+
     { // Module: Linker Manifest
         DbiModuleDescriptorBuilder& module = ExitOnErr(dbiBuilder.addModuleInfo("* Linker Generated Manifest RES *"));
         module.setObjFileName("");
@@ -344,6 +353,7 @@ void GeneratePDB(ModuleInfo const& moduleInfo, char const* outputFileName)
     }
     { // Module: Linker
         DbiModuleDescriptorBuilder& module = ExitOnErr(dbiBuilder.addModuleInfo("* Linker *"));
+
         module.setObjFileName("");
         {
             ObjNameSym sym;
@@ -486,94 +496,25 @@ void GeneratePDB(ModuleInfo const& moduleInfo, char const* outputFileName)
         }
     }
 
-    const vector<SecMapEntry> sectionMap = DbiStreamBuilder::createSectionMap(moduleInfo.sections);
-    dbiBuilder.setSectionMap(sectionMap);
-
     {
-        SectionContrib sc;
+        SectionContrib sc{};
         sc.Imod = 2;
         sc.ISect = 1;
         sc.Off = 0;
         sc.Size = 15;
-        sc.DataCrc = 0;
-        sc.RelocCrc = 0;
         sc.Characteristics = IMAGE_SCN_CNT_CODE | IMAGE_SCN_MEM_EXECUTE | IMAGE_SCN_MEM_READ;
         dbiBuilder.addSectionContrib(sc);
     }
     {
-        SectionContrib sc;
+        SectionContrib sc{};
         sc.Imod = 1;
         sc.ISect = 1;
         sc.Off = 32;
         sc.Size = 123;
-        sc.DataCrc = 3519394944;
-        sc.RelocCrc = 0;
         sc.Characteristics = IMAGE_SCN_CNT_CODE | IMAGE_SCN_ALIGN_16BYTES | IMAGE_SCN_MEM_EXECUTE | IMAGE_SCN_MEM_READ;
         dbiBuilder.addSectionContrib(sc);
     }
-    {
-        SectionContrib sc;
-        sc.Imod = 2;
-        sc.ISect = 2;
-        sc.Off = 0;
-        sc.Size = 56;
-        sc.DataCrc = 0;
-        sc.RelocCrc = 0;
-        sc.Characteristics = IMAGE_SCN_CNT_INITIALIZED_DATA | IMAGE_SCN_MEM_READ;
-        dbiBuilder.addSectionContrib(sc);
-    }
-    {
-        SectionContrib sc;
-        sc.Imod = 2;
-        sc.ISect = 2;
-        sc.Off = 324;
-        sc.Size = 93;
-        sc.DataCrc = 0;
-        sc.RelocCrc = 0;
-        sc.Characteristics = IMAGE_SCN_CNT_INITIALIZED_DATA | IMAGE_SCN_ALIGN_4BYTES | IMAGE_SCN_MEM_READ;
-        dbiBuilder.addSectionContrib(sc);
-    }
-    {
-        SectionContrib sc;
-        sc.Imod = 2;
-        sc.ISect = 2;
-        sc.Off = 420;
-        sc.Size = 20;
-        sc.DataCrc = 0;
-        sc.RelocCrc = 0;
-        sc.Characteristics = IMAGE_SCN_CNT_INITIALIZED_DATA | IMAGE_SCN_ALIGN_4BYTES | IMAGE_SCN_MEM_READ;
-        dbiBuilder.addSectionContrib(sc);
-    }
-    {
-        SectionContrib sc;
-        sc.Imod = 0;
-        sc.ISect = 3;
-        sc.Off = 0;
-        sc.Size = 88;
-        sc.DataCrc = 0;
-        sc.RelocCrc = 0;
-        sc.Characteristics = IMAGE_SCN_CNT_INITIALIZED_DATA | IMAGE_SCN_MEM_READ;
-        dbiBuilder.addSectionContrib(sc);
-    }
-    {
-        SectionContrib sc;
-        sc.Imod = 0;
-        sc.ISect = 3;
-        sc.Off = 368;
-        sc.Size = 384;
-        sc.DataCrc = 0;
-        sc.RelocCrc = 0;
-        sc.Characteristics = IMAGE_SCN_CNT_INITIALIZED_DATA | IMAGE_SCN_MEM_READ;
-        dbiBuilder.addSectionContrib(sc);
-    }
 
-
-    ExitOnErr(dbiBuilder.addDbgStream(
-        DbgHeaderType::SectionHdr,
-        {reinterpret_cast<const uint8_t*>(moduleInfo.sections.data()),
-         moduleInfo.sections.size() * sizeof(moduleInfo.sections[0])}));
-
-    GSIStreamBuilder& gsiBuilder = builder.getGsiBuilder();
     // Base addr is 0x4F1000
     {
         PublicSym32 sym(SymbolRecordKind::PublicSym32);
