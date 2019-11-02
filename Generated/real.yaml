@@ -1,3 +1,463 @@
+---
+MSF:
+  SuperBlock:
+    BlockSize:       4096
+    FreeBlockMap:    2
+    NumBlocks:       25
+    NumDirectoryBytes: 140
+    Unknown1:        0
+    BlockMapAddr:    24
+  NumDirectoryBlocks: 1
+  DirectoryBlocks: [ 23 ]
+  NumStreams:      18
+  FileSize:        102400
+StreamSizes:     [ 40, 118, 108, 1008, 1304, 0, 556, 608, 88, 0, 120, 360, 
+                   64, 250, 584, 1112, 24, 48 ]
+StreamMap:
+  - Stream:          [ 8 ]
+  - Stream:          [ 19 ]
+  - Stream:          [ 18 ]
+  - Stream:          [ 15 ]
+  - Stream:          [ 20 ]
+  - Stream:          [  ]
+  - Stream:          [ 12 ]
+  - Stream:          [ 14 ]
+  - Stream:          [ 13 ]
+  - Stream:          [  ]
+  - Stream:          [ 11 ]
+  - Stream:          [ 6 ]
+  - Stream:          [ 16 ]
+  - Stream:          [ 17 ]
+  - Stream:          [ 7 ]
+  - Stream:          [ 10 ]
+  - Stream:          [ 21 ]
+  - Stream:          [ 22 ]
+StringTable:
+  - '$T0 $ebp = $eip $T0 4 + ^ = $ebp $T0 ^ = $esp $T0 8 + = '
+  - 'C:\Users\LOCALH~1\AppData\Local\Temp\lnk{678FFDAB-C35C-4CFA-9DCF-C77D5ED0274A}.tmp'
+  - 'C:\Users\localhost\Documents\GitHub\PdbGen\PdbTest\Main.cpp'
+PdbStream:
+  Age:             1
+  Guid:            '{2CE2E973-AF5C-DA4F-B546-D40AD322C3FD}'
+  Signature:       1572656729
+  Features:        [ VC140 ]
+  Version:         VC70
+DbiStream:
+  VerHeader:       V70
+  Age:             1
+  BuildNumber:     36375
+  PdbDllVersion:   28106
+  PdbDllRbld:      4
+  Flags:           1
+  MachineType:     x86
+  Modules:
+    - Module:          '* Linker Generated Manifest RES *'
+      ObjFile:         ''
+      SourceFiles:
+        - 'C:\Users\LOCALH~1\AppData\Local\Temp\lnk{678FFDAB-C35C-4CFA-9DCF-C77D5ED0274A}.tmp'
+      Subsections:
+        - !FileChecksums
+          Checksums:
+            - FileName:        'C:\Users\LOCALH~1\AppData\Local\Temp\lnk{678FFDAB-C35C-4CFA-9DCF-C77D5ED0274A}.tmp'
+              Kind:            MD5
+              Checksum:        A353D12F29901935F17C812BAE451A23
+      Modi:
+        Signature:       4
+        Records:
+          - Kind:            S_OBJNAME
+            ObjNameSym:
+              Signature:       0
+              ObjectName:      'C:\Users\LOCALH~1\AppData\Local\Temp\lnk{00FF38FA-EA95-4192-BA7D-FB77C3E54735}.tmp'
+          - Kind:            S_COMPILE3
+            Compile3Sym:
+              Flags:           [ NoDbgInfo ]
+              Machine:         Intel80386
+              FrontendMajor:   0
+              FrontendMinor:   0
+              FrontendBuild:   0
+              FrontendQFE:     0
+              BackendMajor:    14
+              BackendMinor:    23
+              BackendBuild:    28106
+              BackendQFE:      4
+              Version:         'Microsoft (R) CVTRES'
+          - Kind:            S_ENVBLOCK
+            EnvBlockSym:
+              Entries:
+                - cwd
+                - 'C:\Users\localhost\Documents\GitHub\PdbGen\PdbTest'
+                - exe
+                - 'C:\Program Files (x86)\Microsoft Visual Studio\2019\Community\VC\Tools\MSVC\14.23.28105\bin\HostX86\x86\cvtres.exe'
+    - Module:          'C:\Users\localhost\Documents\GitHub\PdbGen\PdbTest\Debug\Main.obj'
+      ObjFile:         'C:\Users\localhost\Documents\GitHub\PdbGen\PdbTest\Debug\Main.obj'
+      SourceFiles:
+        - 'C:\Users\localhost\Documents\GitHub\PdbGen\PdbTest\Main.cpp'
+      Subsections:
+        - !Lines
+          CodeSize:        48
+          Flags:           [  ]
+          RelocOffset:     32
+          RelocSegment:    1
+          Blocks:
+            - FileName:        'C:\Users\localhost\Documents\GitHub\PdbGen\PdbTest\Main.cpp'
+              Lines:
+                - Offset:          0
+                  LineStart:       6
+                  IsStatement:     true
+                  EndDelta:        0
+                - Offset:          3
+                  LineStart:       7
+                  IsStatement:     true
+                  EndDelta:        0
+                - Offset:          12
+                  LineStart:       8
+                  IsStatement:     true
+                  EndDelta:        0
+                - Offset:          19
+                  LineStart:       9
+                  IsStatement:     true
+                  EndDelta:        0
+                - Offset:          28
+                  LineStart:       10
+                  IsStatement:     true
+                  EndDelta:        0
+                - Offset:          43
+                  LineStart:       11
+                  IsStatement:     true
+                  EndDelta:        0
+                - Offset:          46
+                  LineStart:       12
+                  IsStatement:     true
+                  EndDelta:        0
+              Columns:         []
+        - !Lines
+          CodeSize:        75
+          Flags:           [  ]
+          RelocOffset:     80
+          RelocSegment:    1
+          Blocks:
+            - FileName:        'C:\Users\localhost\Documents\GitHub\PdbGen\PdbTest\Main.cpp'
+              Lines:
+                - Offset:          0
+                  LineStart:       14
+                  IsStatement:     true
+                  EndDelta:        0
+                - Offset:          4
+                  LineStart:       15
+                  IsStatement:     true
+                  EndDelta:        0
+                - Offset:          11
+                  LineStart:       16
+                  IsStatement:     true
+                  EndDelta:        0
+                - Offset:          27
+                  LineStart:       17
+                  IsStatement:     true
+                  EndDelta:        0
+                - Offset:          36
+                  LineStart:       18
+                  IsStatement:     true
+                  EndDelta:        0
+                - Offset:          44
+                  LineStart:       19
+                  IsStatement:     true
+                  EndDelta:        0
+                - Offset:          53
+                  LineStart:       20
+                  IsStatement:     true
+                  EndDelta:        0
+                - Offset:          68
+                  LineStart:       21
+                  IsStatement:     true
+                  EndDelta:        0
+                - Offset:          71
+                  LineStart:       22
+                  IsStatement:     true
+                  EndDelta:        0
+              Columns:         []
+        - !FileChecksums
+          Checksums:
+            - FileName:        'C:\Users\localhost\Documents\GitHub\PdbGen\PdbTest\Main.cpp'
+              Kind:            MD5
+              Checksum:        57B8BDAA9586BFF8EE4E0743BC3711A7
+      Modi:
+        Signature:       4
+        Records:
+          - Kind:            S_OBJNAME
+            ObjNameSym:
+              Signature:       0
+              ObjectName:      'C:\Users\localhost\Documents\GitHub\PdbGen\PdbTest\Debug\Main.obj'
+          - Kind:            S_COMPILE3
+            Compile3Sym:
+              Flags:           [  ]
+              Machine:         Pentium3
+              FrontendMajor:   19
+              FrontendMinor:   23
+              FrontendBuild:   28106
+              FrontendQFE:     4
+              BackendMajor:    19
+              BackendMinor:    23
+              BackendBuild:    28106
+              BackendQFE:      4
+              Version:         'Microsoft (R) Optimizing Compiler'
+          - Kind:            S_UNAMESPACE
+            UsingNamespaceSym:
+              Namespace:       std
+          - Kind:            S_GPROC32
+            ProcSym:
+              PtrParent:       0
+              PtrEnd:          240
+              PtrNext:         0
+              CodeSize:        48
+              DbgStart:        3
+              DbgEnd:          46
+              FunctionType:    4097
+              Offset:          32
+              Segment:         1
+              Flags:           [ HasFP ]
+              DisplayName:     foo
+          - Kind:            S_FRAMEPROC
+            FrameProcSym:
+              TotalFrameBytes: 0
+              PaddingFrameBytes: 0
+              OffsetToPadding: 0
+              BytesOfCalleeSavedRegisters: 0
+              OffsetOfExceptionHandler: 0
+              SectionIdOfExceptionHandler: 0
+              Flags:           [ AsynchronousExceptionHandling, OptimizedForSpeed ]
+          - Kind:            S_BPREL32
+            BPRelativeSym:
+              Offset:          8
+              Type:            116
+              VarName:         bar
+          - Kind:            S_END
+            ScopeEndSym:     {}
+          - Kind:            S_GPROC32
+            ProcSym:
+              PtrParent:       0
+              PtrEnd:          336
+              PtrNext:         0
+              CodeSize:        75
+              DbgStart:        4
+              DbgEnd:          71
+              FunctionType:    4099
+              Offset:          80
+              Segment:         1
+              Flags:           [ HasFP ]
+              DisplayName:     main
+          - Kind:            S_FRAMEPROC
+            FrameProcSym:
+              TotalFrameBytes: 4
+              PaddingFrameBytes: 0
+              OffsetToPadding: 0
+              BytesOfCalleeSavedRegisters: 0
+              OffsetOfExceptionHandler: 0
+              SectionIdOfExceptionHandler: 0
+              Flags:           [ AsynchronousExceptionHandling, OptimizedForSpeed ]
+          - Kind:            S_BPREL32
+            BPRelativeSym:
+              Offset:          -4
+              Type:            116
+              VarName:         a
+          - Kind:            S_END
+            ScopeEndSym:     {}
+          - Kind:            S_BUILDINFO
+            BuildInfoSym:
+              BuildId:         4105
+    - Module:          '* Linker *'
+      ObjFile:         ''
+      Modi:
+        Signature:       4
+        Records:
+          - Kind:            S_OBJNAME
+            ObjNameSym:
+              Signature:       0
+              ObjectName:      '* Linker *'
+          - Kind:            S_COMPILE3
+            Compile3Sym:
+              Flags:           [  ]
+              Machine:         Intel80386
+              FrontendMajor:   0
+              FrontendMinor:   0
+              FrontendBuild:   0
+              FrontendQFE:     0
+              BackendMajor:    14
+              BackendMinor:    23
+              BackendBuild:    28106
+              BackendQFE:      4
+              Version:         'Microsoft (R) LINK'
+          - Kind:            S_ENVBLOCK
+            EnvBlockSym:
+              Entries:
+                - cwd
+                - 'C:\Users\localhost\Documents\GitHub\PdbGen\PdbTest'
+                - exe
+                - 'C:\Program Files (x86)\Microsoft Visual Studio\2019\Community\VC\Tools\MSVC\14.23.28105\bin\HostX86\x86\link.exe'
+                - pdb
+                - 'C:\Users\localhost\Documents\GitHub\PdbGen\PdbTest\Debug\PdbTest.pdb'
+                - cmd
+                - ' /ERRORREPORT:PROMPT /OUT:C:\Users\localhost\Documents\GitHub\PdbGen\PdbTest\Debug\PdbTest.exe /INCREMENTAL /NOLOGO /NODEFAULTLIB /MANIFEST "/MANIFESTUAC:level=''asInvoker'' uiAccess=''false''" /manifest:embed /DEBUG:FULL /PDB:C:\Users\localhost\Documents\GitHub\PdbGen\PdbTest\Debug\PdbTest.pdb /SUBSYSTEM:CONSOLE /TLBID:1 /ENTRY:main /DYNAMICBASE:NO /NXCOMPAT:NO /IMPLIB:C:\Users\localhost\Documents\GitHub\PdbGen\PdbTest\Debug\PdbTest.lib /MACHINE:X86 /nologo /incremental /fullbuild'
+          - Kind:            S_TRAMPOLINE
+            TrampolineSym:
+              Type:            TrampIncremental
+              Size:            5
+              ThunkOff:        5
+              TargetOff:       32
+              ThunkSection:    1
+              TargetSection:   1
+          - Kind:            S_TRAMPOLINE
+            TrampolineSym:
+              Type:            TrampIncremental
+              Size:            5
+              ThunkOff:        10
+              TargetOff:       80
+              ThunkSection:    1
+              TargetSection:   1
+          - Kind:            S_SECTION
+            SectionSym:
+              SectionNumber:   1
+              Alignment:       12
+              Rva:             4096
+              Length:          4289
+              Characteristics: 1610612768
+              Name:            .text
+          - Kind:            S_COFFGROUP
+            CoffGroupSym:
+              Size:            4289
+              Characteristics: 1610612768
+              Offset:          0
+              Segment:         1
+              Name:            '.text$mn'
+          - Kind:            S_SECTION
+            SectionSym:
+              SectionNumber:   2
+              Alignment:       12
+              Rva:             12288
+              Length:          719
+              Characteristics: 1073741888
+              Name:            .rdata
+          - Kind:            S_COFFGROUP
+            CoffGroupSym:
+              Size:            324
+              Characteristics: 1073741888
+              Offset:          0
+              Segment:         2
+              Name:            .rdata
+          - Kind:            S_COFFGROUP
+            CoffGroupSym:
+              Size:            0
+              Characteristics: 1073741888
+              Offset:          323
+              Segment:         2
+              Name:            .edata
+          - Kind:            S_COFFGROUP
+            CoffGroupSym:
+              Size:            395
+              Characteristics: 1073741888
+              Offset:          324
+              Segment:         2
+              Name:            '.rdata$zzzdbg'
+          - Kind:            S_SECTION
+            SectionSym:
+              SectionNumber:   3
+              Alignment:       12
+              Rva:             16384
+              Length:          1084
+              Characteristics: 1073741888
+              Name:            .rsrc
+          - Kind:            S_COFFGROUP
+            CoffGroupSym:
+              Size:            368
+              Characteristics: 1073741888
+              Offset:          0
+              Segment:         3
+              Name:            '.rsrc$01'
+          - Kind:            S_COFFGROUP
+            CoffGroupSym:
+              Size:            716
+              Characteristics: 1073741888
+              Offset:          368
+              Segment:         3
+              Name:            '.rsrc$02'
+TpiStream:
+  Version:         VC80
+  Records:
+    - Kind:            LF_ARGLIST
+      ArgList:
+        ArgIndices:      [ 116 ]
+    - Kind:            LF_PROCEDURE
+      Procedure:
+        ReturnType:      116
+        CallConv:        NearC
+        Options:         [ None ]
+        ParameterCount:  1
+        ArgumentList:    4096
+    - Kind:            LF_ARGLIST
+      ArgList:
+        ArgIndices:      [  ]
+    - Kind:            LF_PROCEDURE
+      Procedure:
+        ReturnType:      116
+        CallConv:        NearC
+        Options:         [ None ]
+        ParameterCount:  0
+        ArgumentList:    4098
+IpiStream:
+  Version:         VC80
+  Records:
+    - Kind:            LF_STRING_ID
+      StringId:
+        Id:              0
+        String:          'C:\Users\localhost\Documents\GitHub\PdbGen\PdbTest'
+    - Kind:            LF_STRING_ID
+      StringId:
+        Id:              0
+        String:          'C:\Program Files (x86)\Microsoft Visual Studio\2019\Community\VC\Tools\MSVC\14.23.28105\bin\HostX86\x86\CL.exe'
+    - Kind:            LF_STRING_ID
+      StringId:
+        Id:              0
+        String:          Main.cpp
+    - Kind:            LF_STRING_ID
+      StringId:
+        Id:              0
+        String:          'C:\Users\localhost\Documents\GitHub\PdbGen\PdbTest\Debug\vc142.pdb'
+    - Kind:            LF_STRING_ID
+      StringId:
+        Id:              0
+        String:          '-c -Zi -nologo -W3 -WX- -diagnostics:column -Od -D_MBCS -Gm- -MDd -GS- -Za -Zc:wchar_t- -Zc:forScope- -Zc:rvalueCast- -GR- -Gd -TP -analyze- -FC -Zl -errorreport:prompt -I"C:\Program Files (x86)\Microsoft Visual Studio\2019\Community\VC\Tools\MSVC\14.23.28105'
+    - Kind:            LF_STRING_ID
+      StringId:
+        Id:              0
+        String:          '\include" -I"C:\Program Files (x86)\Microsoft Visual Studio\2019\Community\VC\Tools\MSVC\14.23.28105\atlmfc\include" -I"C:\Program Files (x86)\Microsoft Visual Studio\2019\Community\VC\Auxiliary\VS\include" -I"C:\Program Files (x86)\Windows'
+    - Kind:            LF_STRING_ID
+      StringId:
+        Id:              0
+        String:          ' Kits\10\Include\10.0.18362.0\ucrt" -I"C:\Program Files (x86)\Windows Kits\10\Include\10.0.18362.0\um" -I"C:\Program Files (x86)\Windows Kits\10\Include\10.0.18362.0\shared" -I"C:\Program Files (x86)\Windows Kits\10\Include\10.0.18362.0\winrt"'
+    - Kind:            LF_SUBSTR_LIST
+      StringList:
+        StringIndices:   [ 4100, 4101, 4102 ]
+    - Kind:            LF_STRING_ID
+      StringId:
+        Id:              4103
+        String:          ' -I"C:\Program Files (x86)\Windows Kits\10\Include\10.0.18362.0\cppwinrt" -IC:\Users\localhost\Documents\GitHub\PdbGen\PdbTest\Include\um -X'
+    - Kind:            LF_BUILDINFO
+      BuildInfo:
+        ArgIndices:      [ 4096, 4097, 4098, 4099, 4104 ]
+PublicsStream:
+  Records:
+    - Kind:            S_PUB32
+      PublicSym32:
+        Flags:           [ Function ]
+        Offset:          32
+        Segment:         1
+        Name:            '?foo@@YAHH@Z'
+    - Kind:            S_PUB32
+      PublicSym32:
+        Flags:           [ Function ]
+        Offset:          80
+        Segment:         1
+        Name:            _main
+...
 
 
                           Summary                           
@@ -5,9 +465,9 @@
   Block Size: 4096
   Number of blocks: 25
   Number of streams: 18
-  Signature: 1572588623
+  Signature: 1572656729
   Age: 1
-  GUID: {4BAC46E7-ED2E-6A41-AAAE-CCAAE0C58F91}
+  GUID: {2CE2E973-AF5C-DA4F-B546-D40AD322C3FD}
   Features: 0x1
   Has Debug Info: true
   Has Types: true
@@ -49,9 +509,9 @@
              Blocks: [16]
   Stream 13 ( 250 bytes): [Named Stream "/names"]
              Blocks: [17]
-  Stream 14 ( 576 bytes): [Module "C:\Users\localhost\Documents\GitHub\PdbGen\PdbTest\Debug\Main.obj"]
+  Stream 14 ( 584 bytes): [Module "C:\Users\localhost\Documents\GitHub\PdbGen\PdbTest\Debug\Main.obj"]
              Blocks: [7]
-  Stream 15 (1080 bytes): [Module "* Linker *"]
+  Stream 15 (1112 bytes): [Module "* Linker *"]
              Blocks: [10]
   Stream 16 (  24 bytes): [TPI Hash]
              Blocks: [21]
@@ -76,7 +536,7 @@ Mod 0000 | `* Linker Generated Manifest RES *`:
     --------------------------------------------------------------------------
                           DEBUG_S_FILECHKSMS:       1 entries (          32 bytes)
 Mod 0001 | `C:\Users\localhost\Documents\GitHub\PdbGen\PdbTest\Debug\Main.obj`: 
-  Stream 14, 576 bytes
+  Stream 14, 584 bytes
   
     Symbols
                                        Total:      12 entries (         344 bytes)
@@ -91,17 +551,17 @@ Mod 0001 | `C:\Users\localhost\Documents\GitHub\PdbGen\PdbTest\Debug\Main.obj`:
                                  S_BUILDINFO:       1 entries (           8 bytes)
   
     Chunks
-                                       Total:       3 entries (         216 bytes)
+                                       Total:       3 entries (         224 bytes)
     --------------------------------------------------------------------------
-                               DEBUG_S_LINES:       2 entries (         184 bytes)
+                               DEBUG_S_LINES:       2 entries (         192 bytes)
                           DEBUG_S_FILECHKSMS:       1 entries (          32 bytes)
 Mod 0002 | `* Linker *`: 
-  Stream 15, 1080 bytes
+  Stream 15, 1112 bytes
   
     Symbols
-                                       Total:      14 entries (       1,072 bytes)
+                                       Total:      14 entries (       1,104 bytes)
     --------------------------------------------------------------------------
-                                  S_ENVBLOCK:       1 entries (         708 bytes)
+                                  S_ENVBLOCK:       1 entries (         740 bytes)
                                  S_COFFGROUP:       6 entries (         172 bytes)
                                    S_SECTION:       3 entries (          84 bytes)
                                   S_COMPILE3:       1 entries (          48 bytes)
@@ -114,9 +574,9 @@ Mod 0002 | `* Linker *`:
   Summary |
     
       Symbols
-                                         Total:      29 entries (       1,736 bytes)
+                                         Total:      29 entries (       1,768 bytes)
       --------------------------------------------------------------------------
-                                    S_ENVBLOCK:       2 entries (         888 bytes)
+                                    S_ENVBLOCK:       2 entries (         920 bytes)
                                      S_OBJNAME:       3 entries (         188 bytes)
                                    S_COFFGROUP:       6 entries (         172 bytes)
                                     S_COMPILE3:       3 entries (         156 bytes)
@@ -130,9 +590,9 @@ Mod 0002 | `* Linker *`:
                                    S_BUILDINFO:       1 entries (           8 bytes)
     
       Chunks
-                                         Total:       4 entries (         248 bytes)
+                                         Total:       4 entries (         256 bytes)
       --------------------------------------------------------------------------
-                                 DEBUG_S_LINES:       2 entries (         184 bytes)
+                                 DEBUG_S_LINES:       2 entries (         192 bytes)
                             DEBUG_S_FILECHKSMS:       2 entries (          64 bytes)
 
 
@@ -149,7 +609,7 @@ Mod 0002 | `* Linker *`:
                         String Table                        
 ============================================================
    ID | String
-    2 | 'C:\Users\LOCALH~1\AppData\Local\Temp\lnk{F93BF4C4-43C8-488D-9646-ED6297A239E7}.tmp'
+    2 | 'C:\Users\LOCALH~1\AppData\Local\Temp\lnk{678FFDAB-C35C-4CFA-9DCF-C77D5ED0274A}.tmp'
    85 | 'C:\Users\localhost\Documents\GitHub\PdbGen\PdbTest\Main.cpp'
   145 | '$T0 $ebp = $eip $T0 4 + ^ = $ebp $T0 ^ = $esp $T0 8 + = '
   
@@ -160,8 +620,8 @@ Mod 0002 | `* Linker *`:
     
   Name Buffer (
     0000: 0000433A 5C557365 72735C4C 4F43414C 487E315C 41707044 6174615C 4C6F6361  |..C:\Users\LOCALH~1\AppData\Loca|
-    0020: 6C5C5465 6D705C6C 6E6B7B46 39334246 3443342D 34334338 2D343838 442D3936  |l\Temp\lnk{F93BF4C4-43C8-488D-96|
-    0040: 34362D45 44363239 37413233 3945377D 2E746D70 00433A5C 55736572 735C6C6F  |46-ED6297A239E7}.tmp.C:\Users\lo|
+    0020: 6C5C5465 6D705C6C 6E6B7B36 37384646 4441422D 43333543 2D344346 412D3944  |l\Temp\lnk{678FFDAB-C35C-4CFA-9D|
+    0040: 43462D43 37374435 45443032 3734417D 2E746D70 00433A5C 55736572 735C6C6F  |CF-C77D5ED0274A}.tmp.C:\Users\lo|
     0060: 63616C68 6F73745C 446F6375 6D656E74 735C4769 74487562 5C506462 47656E5C  |calhost\Documents\GitHub\PdbGen\|
     0080: 50646254 6573745C 4D61696E 2E637070 00245430 20246562 70203D20 24656970  |PdbTest\Main.cpp.$T0 $ebp = $eip|
     00A0: 20245430 2034202B 205E203D 20246562 70202454 30205E20 3D202465 73702024  | $T0 4 + ^ = $ebp $T0 ^ = $esp $|
@@ -172,8 +632,8 @@ Mod 0002 | `* Linker *`:
     Bucket Count: 7
     Bucket[0] : 145
     Bucket[1] : 1
-    Bucket[2] : 0
-    Bucket[3] : 2
+    Bucket[2] : 2
+    Bucket[3] : 0
     Bucket[4] : 0
     Bucket[5] : 0
     Bucket[6] : 85
@@ -189,7 +649,7 @@ Mod 0002 | `* Linker *`:
   debug stream: 11, # files: 1, has ec info: false
   pdb file ni: 0 ``, src file ni: 0 ``
 Mod 0001 | `C:\Users\localhost\Documents\GitHub\PdbGen\PdbTest\Debug\Main.obj`: 
-SC[.text]  | mod = 1, 0001:0032, size = 107, data crc = 689958743, reloc crc = 0
+SC[.text]  | mod = 1, 0001:0032, size = 123, data crc = 3519394944, reloc crc = 0
         IMAGE_SCN_CNT_CODE | IMAGE_SCN_ALIGN_16BYTES | IMAGE_SCN_MEM_EXECUTE | 
         IMAGE_SCN_MEM_READ
 Obj: `C:\Users\localhost\Documents\GitHub\PdbGen\PdbTest\Debug\Main.obj`: 
@@ -205,21 +665,22 @@ pdb file ni: 1 `C:\Users\localhost\Documents\GitHub\PdbGen\PdbTest\Debug\PdbTest
                            Files                            
 ============================================================
 Mod 0000 | `* Linker Generated Manifest RES *`: 
-- (MD5: A353D12F29901935F17C812BAE451A23) C:\Users\LOCALH~1\AppData\Local\Temp\lnk{F93BF4C4-43C8-488D-9646-ED6297A239E7}.tmp
+- (MD5: A353D12F29901935F17C812BAE451A23) C:\Users\LOCALH~1\AppData\Local\Temp\lnk{678FFDAB-C35C-4CFA-9DCF-C77D5ED0274A}.tmp
 Mod 0001 | `C:\Users\localhost\Documents\GitHub\PdbGen\PdbTest\Debug\Main.obj`: 
-- (MD5: 8F4BA0302458B9471A92F9A164E896C4) C:\Users\localhost\Documents\GitHub\PdbGen\PdbTest\Main.cpp
+- (MD5: 57B8BDAA9586BFF8EE4E0743BC3711A7) C:\Users\localhost\Documents\GitHub\PdbGen\PdbTest\Main.cpp
 Mod 0002 | `* Linker *`: 
 
                            Lines                            
 ============================================================
 Mod 0000 | `* Linker Generated Manifest RES *`: 
 Mod 0001 | `C:\Users\localhost\Documents\GitHub\PdbGen\PdbTest\Debug\Main.obj`: 
-C:\Users\localhost\Documents\GitHub\PdbGen\PdbTest\Main.cpp (MD5: 8F4BA0302458B9471A92F9A164E896C4)
+C:\Users\localhost\Documents\GitHub\PdbGen\PdbTest\Main.cpp (MD5: 57B8BDAA9586BFF8EE4E0743BC3711A7)
   0001:00000020-00000050, line/addr entries = 7
      6 00000020      7 00000023      8 0000002C      9 00000033     10 0000003C     11 0000004B     12 0000004E   
   
-  0001:00000050-0000008B, line/addr entries = 8
-    14 00000050     15 00000054     16 0000005B     17 00000064     18 0000006C     19 00000075     20 00000084     21 00000087   
+  0001:00000050-0000009B, line/addr entries = 9
+    14 00000050     15 00000054     16 0000005B     17 0000006B     18 00000074     19 0000007C     20 00000085     21 00000094   
+    22 00000097   
   
 Mod 0002 | `* Linker *`: 
 
@@ -249,7 +710,7 @@ Mod 0002 | `* Linker *`:
 ============================================================
   RVA    | Code | Locals | Params | Stack | Prolog | Saved Regs | Has SEH | Has C++EH | Start | Program
 00001020 |   48 |      0 |      4 |     0 |      3 |          0 |   false |     false |  true | $T0 $ebp = $eip $T0 4 + ^ = $ebp $T0 ^ = $esp $T0 8 + = 
-00001050 |   59 |      4 |      0 |     0 |      4 |          0 |   false |     false |  true | $T0 $ebp = $eip $T0 4 + ^ = $ebp $T0 ^ = $esp $T0 8 + = 
+00001050 |   75 |      4 |      0 |     0 |      4 |          0 |   false |     false |  true | $T0 $ebp = $eip $T0 4 + ^ = $ebp $T0 ^ = $esp $T0 8 + = 
 
                      Types (TPI Stream)                     
 ============================================================
@@ -325,7 +786,7 @@ Mod 0002 | `* Linker *`:
                           Symbols                           
 ============================================================
   Mod 0000 | `* Linker Generated Manifest RES *`: 
-       4 | S_OBJNAME [size = 92] sig=0, `C:\Users\LOCALH~1\AppData\Local\Temp\lnk{3E3D1AD0-E368-4636-9BC6-EFF9317B86EF}.tmp`
+       4 | S_OBJNAME [size = 92] sig=0, `C:\Users\LOCALH~1\AppData\Local\Temp\lnk{00FF38FA-EA95-4192-BA7D-FB77C3E54735}.tmp`
       96 | S_COMPILE3 [size = 48]
            machine = intel 80386, Ver = Microsoft (R) CVTRES, language = cvtres
            frontend = 0.0.0.0, backend = 14.23.28106.4
@@ -354,8 +815,8 @@ Mod 0001 | `C:\Users\localhost\Documents\GitHub\PdbGen\PdbTest\Debug\Main.obj`:
          type = 0x0074 (int), offset = 8
    240 | S_END [size = 4]
    244 | S_GPROC32 [size = 44] `main`
-         parent = 0, end = 336, addr = 0001:0080, code size = 59
-         type = `0x1003 (int ())`, debug start = 4, debug end = 55, flags = has fp
+         parent = 0, end = 336, addr = 0001:0080, code size = 75
+         type = `0x1003 (int ())`, debug start = 4, debug end = 71, flags = has fp
    288 | S_FRAMEPROC [size = 32]
          size = 4, padding size = 0, offset to padding = 0
          bytes of callee saved registers = 0, exception handler addr = 0000:0000
@@ -371,7 +832,7 @@ Mod 0002 | `* Linker *`:
          machine = intel 80386, Ver = Microsoft (R) LINK, language = link
          frontend = 0.0.0.0, backend = 14.23.28106.4
          flags = none
-    72 | S_ENVBLOCK [size = 708]
+    72 | S_ENVBLOCK [size = 740]
          - cwd
          - C:\Users\localhost\Documents\GitHub\PdbGen\PdbTest
          - exe
@@ -379,54 +840,54 @@ Mod 0002 | `* Linker *`:
          - pdb
          - C:\Users\localhost\Documents\GitHub\PdbGen\PdbTest\Debug\PdbTest.pdb
          - cmd
-         -  /ERRORREPORT:PROMPT /OUT:C:\Users\localhost\Documents\GitHub\PdbGen\PdbTest\Debug\PdbTest.exe /INCREMENTAL /NOLOGO /NODEFAULTLIB /MANIFEST "/MANIFESTUAC:level='asInvoker' uiAccess='false'" /manifest:embed /DEBUG:FULL /PDB:C:\Users\localhost\Documents\GitHub\PdbGen\PdbTest\Debug\PdbTest.pdb /SUBSYSTEM:CONSOLE /TLBID:1 /ENTRY:main /DYNAMICBASE:NO /NXCOMPAT:NO /IMPLIB:C:\Users\localhost\Documents\GitHub\PdbGen\PdbTest\Debug\PdbTest.lib /MACHINE:X86
-   780 | S_TRAMPOLINE [size = 20]
+         -  /ERRORREPORT:PROMPT /OUT:C:\Users\localhost\Documents\GitHub\PdbGen\PdbTest\Debug\PdbTest.exe /INCREMENTAL /NOLOGO /NODEFAULTLIB /MANIFEST "/MANIFESTUAC:level='asInvoker' uiAccess='false'" /manifest:embed /DEBUG:FULL /PDB:C:\Users\localhost\Documents\GitHub\PdbGen\PdbTest\Debug\PdbTest.pdb /SUBSYSTEM:CONSOLE /TLBID:1 /ENTRY:main /DYNAMICBASE:NO /NXCOMPAT:NO /IMPLIB:C:\Users\localhost\Documents\GitHub\PdbGen\PdbTest\Debug\PdbTest.lib /MACHINE:X86 /nologo /incremental /fullbuild
+   812 | S_TRAMPOLINE [size = 20]
          type = tramp incremental, size = 5, source = 0001:0005, target = 0001:0005
-   800 | S_TRAMPOLINE [size = 20]
+   832 | S_TRAMPOLINE [size = 20]
          type = tramp incremental, size = 5, source = 0001:0010, target = 0001:0010
-   820 | S_SECTION [size = 28] `.text`
-         length = 4269, alignment = 12, rva = 4096, section # = 1
+   852 | S_SECTION [size = 28] `.text`
+         length = 4289, alignment = 12, rva = 4096, section # = 1
          characteristics =
            code
            execute permissions
            read permissions
-   848 | S_COFFGROUP [size = 28] `.text$mn`
-         length = 4269, addr = 0001:0000
+   880 | S_COFFGROUP [size = 28] `.text$mn`
+         length = 4289, addr = 0001:0000
          characteristics =
            code
            execute permissions
            read permissions
-   876 | S_SECTION [size = 28] `.rdata`
+   908 | S_SECTION [size = 28] `.rdata`
          length = 719, alignment = 12, rva = 12288, section # = 2
          characteristics =
            initialized data
            read permissions
-   904 | S_COFFGROUP [size = 28] `.rdata`
+   936 | S_COFFGROUP [size = 28] `.rdata`
          length = 324, addr = 0002:0000
          characteristics =
            initialized data
            read permissions
-   932 | S_COFFGROUP [size = 28] `.edata`
+   964 | S_COFFGROUP [size = 28] `.edata`
          length = 0, addr = 0002:0323
          characteristics =
            initialized data
            read permissions
-   960 | S_COFFGROUP [size = 32] `.rdata$zzzdbg`
+   992 | S_COFFGROUP [size = 32] `.rdata$zzzdbg`
          length = 395, addr = 0002:0324
          characteristics =
            initialized data
            read permissions
-   992 | S_SECTION [size = 28] `.rsrc`
+  1024 | S_SECTION [size = 28] `.rsrc`
          length = 1084, alignment = 12, rva = 16384, section # = 3
          characteristics =
            initialized data
            read permissions
-  1020 | S_COFFGROUP [size = 28] `.rsrc$01`
+  1052 | S_COFFGROUP [size = 28] `.rsrc$01`
          length = 368, addr = 0003:0000
          characteristics =
            initialized data
            read permissions
-  1048 | S_COFFGROUP [size = 28] `.rsrc$02`
+  1080 | S_COFFGROUP [size = 28] `.rsrc$02`
          length = 716, addr = 0003:0368
          characteristics =
            initialized data
@@ -437,7 +898,7 @@ Mod 0002 | `* Linker *`:
   
   SECTION HEADER #1
      .text name
-      10AD virtual size
+      10C1 virtual size
       1000 virtual address
       1200 size of raw data
        400 file pointer to raw data
@@ -486,7 +947,7 @@ Mod 0002 | `* Linker *`:
 ============================================================
   SC[.text]   | mod = 2, 0001:0000, size = 15, data crc = 0, reloc crc = 0
                 IMAGE_SCN_CNT_CODE | IMAGE_SCN_MEM_EXECUTE | IMAGE_SCN_MEM_READ
-  SC[.text]   | mod = 1, 0001:0032, size = 107, data crc = 689958743, reloc crc = 0
+  SC[.text]   | mod = 1, 0001:0032, size = 123, data crc = 3519394944, reloc crc = 0
                 IMAGE_SCN_CNT_CODE | IMAGE_SCN_ALIGN_16BYTES | IMAGE_SCN_MEM_EXECUTE | 
                 IMAGE_SCN_MEM_READ
   SC[.rdata]  | mod = 2, 0002:0000, size = 56, data crc = 0, reloc crc = 0
@@ -503,7 +964,7 @@ Mod 0002 | `* Linker *`:
                         Section Map                         
 ============================================================
   Section 0000 | ovl = 0, group = 0, frame = 1, name = 65535
-                 class = 65535, offset = 0, size = 4269
+                 class = 65535, offset = 0, size = 4289
                  flags = read | execute | 32 bit addr | selector
   Section 0001 | ovl = 0, group = 0, frame = 2, name = 65535
                  class = 65535, offset = 0, size = 719
