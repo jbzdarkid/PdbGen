@@ -32,7 +32,7 @@ using namespace llvm::codeview;
 
 // I hate globals.
 llvm::BumpPtrAllocator llvmAllocator;
-GlobalTypeTableBuilder ttb(llvmAllocator);
+GlobalTypeTableBuilder* ttb = new GlobalTypeTableBuilder(llvmAllocator);
 llvm::ExitOnError ExitOnErr;
 
 struct ModuleInfo
@@ -389,11 +389,11 @@ void GeneratePDB(char const* outputFileName) {
             {
                 ArgListRecord argList(TypeRecordKind::ArgList);
                 argList.ArgIndices = {TypeIndex(SimpleTypeKind::Int32)};
-                procedure.ArgumentList = ttb.writeLeafType(argList);
-                CVType cvt = ttb.getType(procedure.ArgumentList);
+                procedure.ArgumentList = ttb->writeLeafType(argList);
+                CVType cvt = ttb->getType(procedure.ArgumentList);
                 tpiBuilder.addTypeRecord(cvt.RecordData, ExitOnErr(hashTypeRecord(cvt)));
             }
-            CVType cvt = ttb.getType(ttb.writeLeafType(procedure));
+            CVType cvt = ttb->getType(ttb->writeLeafType(procedure));
             tpiBuilder.addTypeRecord(cvt.RecordData, ExitOnErr(hashTypeRecord(cvt)));
         }
         {
@@ -405,11 +405,11 @@ void GeneratePDB(char const* outputFileName) {
             {
                 ArgListRecord argList(TypeRecordKind::ArgList);
                 argList.ArgIndices = {};
-                procedure.ArgumentList = ttb.writeLeafType(argList);
-                CVType cvt = ttb.getType(procedure.ArgumentList);
+                procedure.ArgumentList = ttb->writeLeafType(argList);
+                CVType cvt = ttb->getType(procedure.ArgumentList);
                 tpiBuilder.addTypeRecord(cvt.RecordData, ExitOnErr(hashTypeRecord(cvt)));
             }
-            CVType cvt = ttb.getType(ttb.writeLeafType(procedure));
+            CVType cvt = ttb->getType(ttb->writeLeafType(procedure));
             tpiBuilder.addTypeRecord(cvt.RecordData, ExitOnErr(hashTypeRecord(cvt)));
         }
     }
