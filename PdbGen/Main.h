@@ -2,8 +2,8 @@
 
 #include <llvm/DebugInfo/CodeView/TypeIndex.h>
 
-namespace llvm::pdb { class DbiModuleDescriptorBuilder; class DbiStreamBuilder; class GSIStreamBuilder; }
-namespace llvm::codeview { class DebugChecksumsSubsection; class DebugStringTableSubsection; }
+namespace llvm::pdb { class DbiModuleDescriptorBuilder; class DbiStreamBuilder; class GSIStreamBuilder; class TpiStreamBuilder; }
+namespace llvm::codeview { class DebugChecksumsSubsection; class DebugStringTableSubsection; class GlobalTypeTableBuilder; }
 
 struct Local {
     int32_t offset; // Offset from EBP (I think)
@@ -39,7 +39,9 @@ private:
     llvm::pdb::DbiModuleDescriptorBuilder* _module;
     llvm::pdb::DbiStreamBuilder* _dbiBuilder;
     llvm::pdb::GSIStreamBuilder* _gsiBuilder;
+    llvm::pdb::TpiStreamBuilder* _tpiBuilder; 
 
+    llvm::codeview::GlobalTypeTableBuilder* _typeBuilder;
     llvm::codeview::DebugStringTableSubsection* _strings;
     std::shared_ptr<llvm::codeview::DebugChecksumsSubsection> _checksums;
 };

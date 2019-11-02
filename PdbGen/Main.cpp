@@ -147,7 +147,7 @@ void Main::AddFunction(const Function& function) {
     }
 
     // Update procSym.End to point to the symbol offset of the ScopeEndSym.
-    for (const auto symbol : symbols) procSym.End += symbol.data().size();
+    for (const auto symbol : symbols) procSym.End += static_cast<int32_t>(symbol.data().size());
     symbols[0] = CreateSymbol(procSym);
     for (const auto symbol : symbols) _module->addSymbol(symbol);
 
@@ -180,6 +180,33 @@ void Main::AddFunction(const Function& function) {
         _dbiBuilder->addSectionContrib(sc);
     }
 
+    {
+        PublicSym32 sym(SymbolRecordKind::PublicSym32);
+        sym.Flags = PublicSymFlags::Function;
+        sym.Offset = function.offset;
+        sym.Segment = function.segment;
+        sym.Name = function.properName;
+        _gsiBuilder->addPublicSymbol(sym);
+    }
+
+    {
+        ProcedureRecord procedure(TypeRecordKind::Procedure);
+        procedure.ReturnType = fooFunction.returnType;
+        procedure.CallConv = CallingConvention::NearC;
+        procedure.Options = FunctionOptions::None;
+        assert(fooFunction.arguments.size() <= 0xFFFF);
+        procedure.ParameterCount = static_cast<uint16_t>(fooFunction.arguments.size());
+        {
+            ArgListRecord argList(TypeRecordKind::ArgList);
+            argList.ArgIndices = fooFunction.arguments;
+            procedure.ArgumentList = _typeBuilder->writeLeafType(argList);
+            CVType cvt = _typeBuilder->getType(procedure.ArgumentList);
+            _tpiBuilder->addTypeRecord(cvt.RecordData, ExitOnErr(hashTypeRecord(cvt)));
+        }
+        CVType cvt = _typeBuilder->getType(_typeBuilder->writeLeafType(procedure));
+        _tpiBuilder->addTypeRecord(cvt.RecordData, ExitOnErr(hashTypeRecord(cvt)));
+    }
+
 }
 
 void Main::GeneratePDB(char const* outputFileName) {
@@ -192,11 +219,11 @@ void Main::GeneratePDB(char const* outputFileName) {
     MSFBuilder& msfBuilder = builder->getMsfBuilder();
     InfoStreamBuilder& infoBuilder = builder->getInfoBuilder();
     _dbiBuilder = &builder->getDbiBuilder();
-    _strings = new DebugStringTableSubsection();
-    GSIStreamBuilder& gsiBuilder = builder->getGsiBuilder();
-    TpiStreamBuilder& tpiBuilder = builder->getTpiBuilder();
+    _strings = new DebugStringTableSubsection(); // @Leak: Crashes during destructor
+    _gsiBuilder = &builder->getGsiBuilder();
+    _tpiBuilder = &builder->getTpiBuilder();
     TpiStreamBuilder& ipiBuilder = builder->getIpiBuilder();
-    GlobalTypeTableBuilder* typeBuilder = new GlobalTypeTableBuilder(llvmAllocator);
+    _typeBuilder = new GlobalTypeTableBuilder(llvmAllocator); // @Leak: Crashes during destructor
 
     // Add each of the reserved streams. We may not put any data in them, but they at least have to be present.
     for (int i=0; i<kSpecialStreamCount; i++) ExitOnErr(msfBuilder.addStream(0));
@@ -215,9 +242,9 @@ void Main::GeneratePDB(char const* outputFileName) {
          moduleInfo.sections.size() * sizeof(moduleInfo.sections[0])}));
 
     _dbiBuilder->setVersionHeader(PdbDbiV70);
-    _dbiBuilder->setPublicsStreamIndex(gsiBuilder.getPublicsStreamIndex());
+    _dbiBuilder->setPublicsStreamIndex(_gsiBuilder->getPublicsStreamIndex());
     
-    tpiBuilder.setVersionHeader(PdbTpiV80);
+    _tpiBuilder->setVersionHeader(PdbTpiV80);
     ipiBuilder.setVersionHeader(PdbTpiV80);
 
     _module = &ExitOnErr(_dbiBuilder->addModuleInfo(moduleName));
@@ -243,58 +270,6 @@ void Main::GeneratePDB(char const* outputFileName) {
 
     AddFunction(fooFunction);
     AddFunction(mainFunction);
-
-    {
-        PublicSym32 sym(SymbolRecordKind::PublicSym32);
-        sym.Flags = PublicSymFlags::Function;
-        sym.Offset = fooFunction.offset;
-        sym.Segment = fooFunction.segment;
-        sym.Name = fooFunction.properName;
-        gsiBuilder.addPublicSymbol(sym);
-    }
-    {
-        PublicSym32 sym(SymbolRecordKind::PublicSym32);
-        sym.Flags = PublicSymFlags::Function;
-        sym.Offset = mainFunction.offset;
-        sym.Segment = mainFunction.segment;
-        sym.Name = mainFunction.properName;
-        gsiBuilder.addPublicSymbol(sym);
-    }
-
-    {
-        ProcedureRecord procedure(TypeRecordKind::Procedure);
-        procedure.ReturnType = fooFunction.returnType;
-        procedure.CallConv = CallingConvention::NearC;
-        procedure.Options = FunctionOptions::None;
-        assert(fooFunction.arguments.size() <= 0xFFFF);
-        procedure.ParameterCount = static_cast<uint16_t>(fooFunction.arguments.size());
-        {
-            ArgListRecord argList(TypeRecordKind::ArgList);
-            argList.ArgIndices = fooFunction.arguments;
-            procedure.ArgumentList = typeBuilder->writeLeafType(argList);
-            CVType cvt = typeBuilder->getType(procedure.ArgumentList);
-            tpiBuilder.addTypeRecord(cvt.RecordData, ExitOnErr(hashTypeRecord(cvt)));
-        }
-        CVType cvt = typeBuilder->getType(typeBuilder->writeLeafType(procedure));
-        tpiBuilder.addTypeRecord(cvt.RecordData, ExitOnErr(hashTypeRecord(cvt)));
-    }
-    {
-        ProcedureRecord procedure(TypeRecordKind::Procedure);
-        procedure.ReturnType = mainFunction.returnType;
-        procedure.CallConv = CallingConvention::NearC;
-        procedure.Options = FunctionOptions::None;
-        assert(mainFunction.arguments.size() <= 0xFFFF);
-        procedure.ParameterCount = static_cast<uint16_t>(mainFunction.arguments.size());
-        {
-            ArgListRecord argList(TypeRecordKind::ArgList);
-            argList.ArgIndices = mainFunction.arguments;
-            procedure.ArgumentList = typeBuilder->writeLeafType(argList);
-            CVType cvt = typeBuilder->getType(procedure.ArgumentList);
-            tpiBuilder.addTypeRecord(cvt.RecordData, ExitOnErr(hashTypeRecord(cvt)));
-        }
-        CVType cvt = typeBuilder->getType(typeBuilder->writeLeafType(procedure));
-        tpiBuilder.addTypeRecord(cvt.RecordData, ExitOnErr(hashTypeRecord(cvt)));
-    }
 
     GUID ignoredOutGuid;
     // Also commits all other stream builders.
