@@ -104,8 +104,8 @@ void AddSymbol(llvm::pdb::DbiModuleDescriptorBuilder& modiBuilder, SymType& sym)
     modiBuilder.addSymbol(cvSym);
 }
 
-void GeneratePDB(ModuleInfo const& moduleInfo, char const* outputFileName)
-{
+void GeneratePDB(char const* outputFileName) {
+    ModuleInfo moduleInfo = ReadModuleInfo("C:/Users/localhost/Documents/GitHub/PdbGen/PdbTest/Debug/PdbTest.exe");
     // Name doesn't actually matter, since there is no real object file.
     const char* moduleName = R"(C:\Users\localhost\Documents\GitHub\PdbGen\PdbTest\Debug\Main.obj)";
     // This one might matter. Unsure.
@@ -137,11 +137,6 @@ void GeneratePDB(ModuleInfo const& moduleInfo, char const* outputFileName)
     dbiBuilder.setMachineType(moduleInfo.is64Bit ? PDB_Machine::Amd64 : PDB_Machine::x86);
 
     DebugStringTableSubsection* strings = new DebugStringTableSubsection();
-    strings->insert("");
-    strings->insert(tmpFilename);
-    strings->insert(filename);
-    strings->insert("$T0 $ebp = $eip $T0 4 + ^ = $ebp $T0 ^ = $esp $T0 8 + = ");
-    builder->getStringTableBuilder().setStrings(*strings); // Must be after inserting strings. Should probably assert that this isn't resized at the end (i.e. nobody adds more strings)
 
     const vector<SecMapEntry> sectionMap = DbiStreamBuilder::createSectionMap(moduleInfo.sections);
     dbiBuilder.setSectionMap(sectionMap);
@@ -151,48 +146,13 @@ void GeneratePDB(ModuleInfo const& moduleInfo, char const* outputFileName)
          moduleInfo.sections.size() * sizeof(moduleInfo.sections[0])}));
 
     GSIStreamBuilder& gsiBuilder = builder->getGsiBuilder();
+    dbiBuilder.setPublicsStreamIndex(gsiBuilder.getPublicsStreamIndex());
+    
+    TpiStreamBuilder& tpiBuilder = builder->getTpiBuilder();
+    tpiBuilder.setVersionHeader(PdbTpiV80);
 
-    { // Module: Linker Manifest
-        DbiModuleDescriptorBuilder& module = ExitOnErr(dbiBuilder.addModuleInfo("* Linker Generated Manifest RES *"));
-        module.setObjFileName("");
-        ExitOnErr(dbiBuilder.addModuleSourceFile(module, R"(C:\Users\LOCALH~1\AppData\Local\Temp\lnk{CD77352F-E54C-4392-A458-0DE42662F1A3}.tmp)"));
+    DbiModuleDescriptorBuilder& module = ExitOnErr(dbiBuilder.addModuleInfo("* Linker Generated Manifest RES *"));
 
-        auto checksums = make_shared<DebugChecksumsSubsection>(*strings);
-        checksums->addChecksum(tmpFilename, FileChecksumKind::MD5, {0xA3, 0x53, 0xD1, 0x2F, 0x29, 0x90, 0x19, 0x35, 0xF1, 0x7C, 0x81, 0x2B, 0xAE, 0x45, 0x1A, 0x23});
-        module.addDebugSubsection(checksums);
-
-        {
-            ObjNameSym sym;
-            sym.Signature = 0;
-            sym.Name = R"(C:\Users\LOCALH~1\AppData\Local\Temp\lnk{AFCB38A6-9747-485E-A123-A631A75FAE03}.tmp)"; // some other random temp file
-            AddSymbol(module, sym);
-        }
-        {
-            Compile3Sym sym;
-            sym.Flags = CompileSym3Flags::NoDbgInfo;
-            sym.Machine = CPUType::Intel80386;
-            sym.VersionFrontendMajor = 0;
-            sym.VersionFrontendMinor = 0;
-            sym.VersionFrontendBuild = 0;
-            sym.VersionFrontendQFE = 0;
-            sym.VersionBackendMajor = 14;
-            sym.VersionBackendMinor = 23;
-            sym.VersionBackendBuild = 28106;
-            sym.VersionBackendQFE = 4;
-            sym.Version = "Microsoft (R) CVTRES";
-            AddSymbol(module, sym);
-        }
-        {
-            EnvBlockSym sym(SymbolRecordKind::EnvBlockSym);
-            sym.Fields = {
-                "cwd",
-                R"(C:\Users\localhost\Documents\GitHub\PdbGen\PdbTest)",
-                "exe",
-                R"##(C:\Program Files (x86)\Microsoft Visual Studio\2019\Community\VC\Tools\MSVC\14.23.28105\bin\HostX86\x86\cvtres.exe)##"
-                };
-            AddSymbol(module, sym);
-        }
-    }
     { // Module: Main.obj
         DbiModuleDescriptorBuilder& module = ExitOnErr(dbiBuilder.addModuleInfo(moduleName));
         module.setObjFileName(moduleName);
@@ -208,7 +168,6 @@ void GeneratePDB(ModuleInfo const& moduleInfo, char const* outputFileName)
             debugSubsection->createBlock(filename);
             debugSubsection->setCodeSize(48); // Function length (Total instruction count, including ret)
             debugSubsection->setRelocationAddress(1, 32); // Offset from the program base (?)
-            debugSubsection->setFlags(LineFlags::LF_None);
 
             debugSubsection->addLineInfo(0, LineInfo(6, 6, true)); // Offset, Start, End, isStatement
             debugSubsection->addLineInfo(3, LineInfo(7, 7, true)); // Offset, Start, End, isStatement
@@ -225,7 +184,6 @@ void GeneratePDB(ModuleInfo const& moduleInfo, char const* outputFileName)
             debugSubsection->createBlock(filename);
             debugSubsection->setCodeSize(75); // Function length (Total instruction count, including ret)
             debugSubsection->setRelocationAddress(1, 80); // Offset from the program base (?)
-            debugSubsection->setFlags(LineFlags::LF_None);
 
             debugSubsection->addLineInfo(0, LineInfo(14, 14, true)); // Offset, Start, End, isStatement
             debugSubsection->addLineInfo(4, LineInfo(15, 15, true)); // Offset, Start, End, isStatement
@@ -354,42 +312,6 @@ void GeneratePDB(ModuleInfo const& moduleInfo, char const* outputFileName)
     { // Module: Linker
         DbiModuleDescriptorBuilder& module = ExitOnErr(dbiBuilder.addModuleInfo("* Linker *"));
 
-        module.setObjFileName("");
-        {
-            ObjNameSym sym;
-            sym.Signature = 0;
-            sym.Name = " * Linker *";
-            AddSymbol(module, sym);
-        }
-        {
-            Compile3Sym sym;
-            sym.Flags = CompileSym3Flags::None;
-            sym.Machine = CPUType::Intel80386;
-            sym.VersionFrontendMajor = 0;
-            sym.VersionFrontendMinor = 0;
-            sym.VersionFrontendBuild = 0;
-            sym.VersionFrontendQFE = 0;
-            sym.VersionBackendMajor = 14;
-            sym.VersionBackendMinor = 23;
-            sym.VersionBackendBuild = 28106;
-            sym.VersionBackendQFE = 4;
-            sym.Version = "Microsoft (R) LINK";
-            AddSymbol(module, sym);
-        }
-        {
-            EnvBlockSym sym(SymbolRecordKind::EnvBlockSym);
-            sym.Fields = {
-                "cwd",
-                R"(C:\Users\localhost\Documents\GitHub\PdbGen\PdbTest)",
-                "exe",
-                R"#(C:\Program Files (x86)\Microsoft Visual Studio\2019\Community\VC\Tools\MSVC\14.23.28105\bin\HostX86\x86\link.exe)#",
-                "pdb",
-                R"(C:\Users\localhost\Documents\GitHub\PdbGen\PdbTest\Debug\PdbTest.pdb)",
-                "cmd",
-                R"#( /ERRORREPORT:PROMPT /OUT:C:\Users\localhost\Documents\GitHub\PdbGen\PdbTest\Debug\PdbTest.exe /INCREMENTAL /NOLOGO /NODEFAULTLIB /MANIFEST "/MANIFESTUAC:level='asInvoker' uiAccess='false'" /manifest:embed /DEBUG:FULL /PDB:C:\Users\localhost\Documents\GitHub\PdbGen\PdbTest\Debug\PdbTest.pdb /SUBSYSTEM:CONSOLE /TLBID:1 /ENTRY:main /DYNAMICBASE:NO /NXCOMPAT:NO /IMPLIB:C:\Users\localhost\Documents\GitHub\PdbGen\PdbTest\Debug\PdbTest.lib /MACHINE:X86)#"
-            };
-            AddSymbol(module, sym);
-        }
         {
             TrampolineSym sym(SymbolRecordKind::TrampolineSym);
             sym.Type = TrampolineType::TrampIncremental;
@@ -408,90 +330,6 @@ void GeneratePDB(ModuleInfo const& moduleInfo, char const* outputFileName)
             sym.TargetOffset = 80;
             sym.ThunkSection = 1;
             sym.TargetSection = 1;
-            AddSymbol(module, sym);
-        }
-        {
-            SectionSym sym(SymbolRecordKind::SectionSym);
-            sym.SectionNumber = 1;
-            sym.Alignment = 12;
-            sym.Rva = 4096;
-            sym.Length = 4289;
-            sym.Characteristics = SectionCharacteristics::IMAGE_SCN_MEM_READ | SectionCharacteristics::IMAGE_SCN_MEM_EXECUTE | SectionCharacteristics::IMAGE_SCN_CNT_CODE;
-            sym.Name = ".text";
-            AddSymbol(module, sym);
-        }
-        {
-            CoffGroupSym sym(SymbolRecordKind::CoffGroupSym);
-            sym.Size = 4289;
-            sym.Characteristics = SectionCharacteristics::IMAGE_SCN_MEM_READ | SectionCharacteristics::IMAGE_SCN_MEM_EXECUTE | SectionCharacteristics::IMAGE_SCN_CNT_CODE;
-            sym.Offset = 0;
-            sym.Segment = 1;
-            sym.Name = ".text$mn";
-            AddSymbol(module, sym);
-        }
-        {
-            SectionSym sym(SymbolRecordKind::SectionSym);
-            sym.SectionNumber = 2;
-            sym.Alignment = 12;
-            sym.Rva = 12288;
-            sym.Length = 719;
-            sym.Characteristics = SectionCharacteristics::IMAGE_SCN_MEM_READ | SectionCharacteristics::IMAGE_SCN_CNT_INITIALIZED_DATA;
-            sym.Name = ".rdata";
-            AddSymbol(module, sym);
-        }
-        {
-            CoffGroupSym sym(SymbolRecordKind::CoffGroupSym);
-            sym.Size = 324;
-            sym.Characteristics = SectionCharacteristics::IMAGE_SCN_MEM_READ | SectionCharacteristics::IMAGE_SCN_CNT_INITIALIZED_DATA;
-            sym.Offset = 0;
-            sym.Segment = 2;
-            sym.Name = ".rdata";
-            AddSymbol(module, sym);
-        }
-        {
-            CoffGroupSym sym(SymbolRecordKind::CoffGroupSym);
-            sym.Size = 0;
-            sym.Characteristics = SectionCharacteristics::IMAGE_SCN_MEM_READ | SectionCharacteristics::IMAGE_SCN_CNT_INITIALIZED_DATA;
-            sym.Offset = 323;
-            sym.Segment = 2;
-            sym.Name = ".edata";
-            AddSymbol(module, sym);
-        }
-        {
-            CoffGroupSym sym(SymbolRecordKind::CoffGroupSym);
-            sym.Size = 395;
-            sym.Characteristics = SectionCharacteristics::IMAGE_SCN_MEM_READ | SectionCharacteristics::IMAGE_SCN_CNT_INITIALIZED_DATA;
-            sym.Offset = 324;
-            sym.Segment = 2;
-            sym.Name = ".rdata$zzzdbg";
-            AddSymbol(module, sym);
-        }
-        {
-            SectionSym sym(SymbolRecordKind::SectionSym);
-            sym.SectionNumber = 3;
-            sym.Alignment = 12;
-            sym.Rva = 16384;
-            sym.Length = 1084;
-            sym.Characteristics = SectionCharacteristics::IMAGE_SCN_MEM_READ | SectionCharacteristics::IMAGE_SCN_CNT_INITIALIZED_DATA;
-            sym.Name = ".rsrc";
-            AddSymbol(module, sym);
-        }
-        {
-            CoffGroupSym sym(SymbolRecordKind::CoffGroupSym);
-            sym.Size = 368;
-            sym.Characteristics = SectionCharacteristics::IMAGE_SCN_MEM_READ | SectionCharacteristics::IMAGE_SCN_CNT_INITIALIZED_DATA;
-            sym.Offset = 0;
-            sym.Segment = 3;
-            sym.Name = ".rsrc$01";
-            AddSymbol(module, sym);
-        }
-        {
-            CoffGroupSym sym(SymbolRecordKind::CoffGroupSym);
-            sym.Size = 716;
-            sym.Characteristics = SectionCharacteristics::IMAGE_SCN_MEM_READ | SectionCharacteristics::IMAGE_SCN_CNT_INITIALIZED_DATA;
-            sym.Offset = 368;
-            sym.Segment = 3;
-            sym.Name = ".rsrc$02";
             AddSymbol(module, sym);
         }
     }
@@ -541,58 +379,40 @@ void GeneratePDB(ModuleInfo const& moduleInfo, char const* outputFileName)
         gsiBuilder.addGlobalSymbol(sym);
     }
 
-    dbiBuilder.setPublicsStreamIndex(gsiBuilder.getPublicsStreamIndex());
-    // dbiBuilder.setGlobalsStreamIndex(gsiBuilder.getGlobalsStreamIndex());
-    // dbiBuilder.setSymbolRecordStreamIndex(gsiBuilder.getRecordStreamIdx());
-
-    TpiStreamBuilder& tpiBuilder = builder->getTpiBuilder();
-    tpiBuilder.setVersionHeader(PdbTpiV80);
     {
         {
-            ArgListRecord record(TypeRecordKind::ArgList);
-            record.ArgIndices = {TypeIndex(SimpleTypeKind::Int32)};
-            CVType cvt = ttb.getType(ttb.writeLeafType(record));
+            ProcedureRecord procedure(TypeRecordKind::Procedure);
+            procedure.ReturnType = TypeIndex(SimpleTypeKind::Int32);
+            procedure.CallConv = CallingConvention::NearC;
+            procedure.Options = FunctionOptions::None;
+            procedure.ParameterCount = 1;
+            {
+                ArgListRecord argList(TypeRecordKind::ArgList);
+                argList.ArgIndices = {TypeIndex(SimpleTypeKind::Int32)};
+                procedure.ArgumentList = ttb.writeLeafType(argList);
+                CVType cvt = ttb.getType(procedure.ArgumentList);
+                tpiBuilder.addTypeRecord(cvt.RecordData, ExitOnErr(hashTypeRecord(cvt)));
+            }
+            CVType cvt = ttb.getType(ttb.writeLeafType(procedure));
             tpiBuilder.addTypeRecord(cvt.RecordData, ExitOnErr(hashTypeRecord(cvt)));
         }
         {
-            ProcedureRecord record(TypeRecordKind::Procedure);
-            record.ReturnType = TypeIndex(SimpleTypeKind::Int32);
-            record.CallConv = CallingConvention::NearC;
-            record.Options = FunctionOptions::None;
-            record.ParameterCount = 1;
-            record.ArgumentList = TypeIndex(0x1000);
-            CVType cvt = ttb.getType(ttb.writeLeafType(record));
-            tpiBuilder.addTypeRecord(cvt.RecordData, ExitOnErr(hashTypeRecord(cvt)));
-        }
-        {
-            ArgListRecord record(TypeRecordKind::ArgList);
-            record.ArgIndices = {};
-            CVType cvt = ttb.getType(ttb.writeLeafType(record));
-            tpiBuilder.addTypeRecord(cvt.RecordData, ExitOnErr(hashTypeRecord(cvt)));
-        }
-        {
-            ProcedureRecord record(TypeRecordKind::Procedure);
-            record.ReturnType = TypeIndex(SimpleTypeKind::Int32);
-            record.CallConv = CallingConvention::NearC;
-            record.Options = FunctionOptions::None;
-            record.ParameterCount = 0;
-            record.ArgumentList = TypeIndex(0x1002);
-            CVType cvt = ttb.getType(ttb.writeLeafType(record));
+            ProcedureRecord procedure(TypeRecordKind::Procedure);
+            procedure.ReturnType = TypeIndex(SimpleTypeKind::Int32);
+            procedure.CallConv = CallingConvention::NearC;
+            procedure.Options = FunctionOptions::None;
+            procedure.ParameterCount = 0;
+            {
+                ArgListRecord argList(TypeRecordKind::ArgList);
+                argList.ArgIndices = {};
+                procedure.ArgumentList = ttb.writeLeafType(argList);
+                CVType cvt = ttb.getType(procedure.ArgumentList);
+                tpiBuilder.addTypeRecord(cvt.RecordData, ExitOnErr(hashTypeRecord(cvt)));
+            }
+            CVType cvt = ttb.getType(ttb.writeLeafType(procedure));
             tpiBuilder.addTypeRecord(cvt.RecordData, ExitOnErr(hashTypeRecord(cvt)));
         }
     }
-
-    FrameData frameData;
-    frameData.RvaStart = 0x1010;
-    frameData.CodeSize = 59;
-    frameData.LocalSize = 4;
-    frameData.ParamsSize = 0;
-    frameData.MaxStackSize = 0;
-    frameData.PrologSize = 4;
-    frameData.SavedRegsSize = 0;
-    frameData.Flags = !FrameData::HasSEH | !FrameData::HasEH | FrameData::IsFunctionStart;
-    frameData.FrameFunc = strings->getIdForString("$T0 $ebp = $eip $T0 4 + ^ = $ebp $T0 ^ = $esp $T0 8 + = ");
-    dbiBuilder.addNewFpoData(frameData);
 
     TpiStreamBuilder& ipiBuilder = builder->getIpiBuilder();
     ipiBuilder.setVersionHeader(PdbTpiV80);
@@ -604,10 +424,5 @@ void GeneratePDB(ModuleInfo const& moduleInfo, char const* outputFileName)
 }
 
 int main(int argc, char** argv) {
-    ModuleInfo moduleInfo = ReadModuleInfo("C:/Users/localhost/Documents/GitHub/PdbGen/PdbTest/Debug/PdbTest.exe");
-
-    // sort(publics.begin(), publics.end(),
-    //         [](auto const& l, auto const& r) { return l.Name < r.Name; });
-
-    GeneratePDB(moduleInfo, "../Generated/PdbTest.pdb");
+    GeneratePDB("../Generated/PdbTest.pdb");
 }
