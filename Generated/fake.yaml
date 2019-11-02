@@ -3,9 +3,9 @@
                           Summary                           
 ============================================================
   Block Size: 4096
-  Number of blocks: 17
-  Number of streams: 14
-  Signature: 1572656729
+  Number of blocks: 16
+  Number of streams: 13
+  Signature: 1572726807
   Age: 1
   GUID: {2CE2E973-AF5C-DA4F-B546-D40AD322C3FD}
   Features: 0x1
@@ -24,80 +24,66 @@
   Stream  0 (  0 bytes): [Old MSF Directory]
              Blocks: []
   Stream  1 ( 93 bytes): [PDB Stream]
-             Blocks: [15]
+             Blocks: [14]
   Stream  2 (108 bytes): [TPI Stream]
              Blocks: [7]
-  Stream  3 (607 bytes): [DBI Stream]
-             Blocks: [12]
+  Stream  3 (483 bytes): [DBI Stream]
+             Blocks: [11]
   Stream  4 ( 56 bytes): [IPI Stream]
-             Blocks: [14]
+             Blocks: [13]
   Stream  5 (  0 bytes): [Named Stream "/LinkInfo"]
              Blocks: []
-  Stream  6 (556 bytes): [Global Symbol Hash]
+  Stream  6 (532 bytes): [Global Symbol Hash]
              Blocks: [4]
   Stream  7 (592 bytes): [Public Symbol Hash]
              Blocks: [5]
-  Stream  8 ( 88 bytes): [Symbol Records]
+  Stream  8 ( 48 bytes): [Symbol Records]
              Blocks: [6]
   Stream  9 ( 24 bytes): [TPI Hash]
              Blocks: [8]
   Stream 10 (120 bytes): [Section Header Data]
              Blocks: [9]
-  Stream 11 (400 bytes): [Module "D:/dummy.obj"]
+  Stream 11 (504 bytes): [Module "D:/dummy.obj"]
              Blocks: [10]
-  Stream 12 ( 48 bytes): [Module "* Linker *"]
-             Blocks: [11]
-  Stream 13 ( 25 bytes): [Named Stream "/names"]
-             Blocks: [13]
+  Stream 12 ( 25 bytes): [Named Stream "/names"]
+             Blocks: [12]
 
 
                         Module Stats                        
 ============================================================
-Mod 0000 | `* Linker Generated Manifest RES *`: 
-  Mod 0 (debug info not present): [* Linker Generated Manifest RES *]
-Mod 0001 | `D:/dummy.obj`: 
-  Stream 11, 400 bytes
+Mod 0000 | `D:/dummy.obj`: 
+  Stream 11, 504 bytes
   
     Symbols
-                                       Total:       7 entries (         168 bytes)
+                                       Total:      11 entries (         248 bytes)
     --------------------------------------------------------------------------
                                    S_GPROC32:       2 entries (          88 bytes)
+                                S_TRAMPOLINE:       4 entries (          80 bytes)
                                   S_COMPILE3:       1 entries (          40 bytes)
                                    S_BPREL32:       2 entries (          32 bytes)
                                        S_END:       2 entries (           8 bytes)
   
     Chunks
-                                       Total:       3 entries (         224 bytes)
+                                       Total:       3 entries (         248 bytes)
     --------------------------------------------------------------------------
                                DEBUG_S_LINES:       2 entries (         192 bytes)
-                          DEBUG_S_FILECHKSMS:       1 entries (          32 bytes)
-Mod 0002 | `* Linker *`: 
-  Stream 12, 48 bytes
-  
-    Symbols
-                                       Total:       2 entries (          40 bytes)
-    --------------------------------------------------------------------------
-                                S_TRAMPOLINE:       2 entries (          40 bytes)
-  
-    Chunks
-                                       Total:       0 entries (           0 bytes)
-    --------------------------------------------------------------------------
+                          DEBUG_S_FILECHKSMS:       1 entries (          56 bytes)
   Summary |
     
       Symbols
-                                         Total:       9 entries (         208 bytes)
+                                         Total:      11 entries (         248 bytes)
       --------------------------------------------------------------------------
                                      S_GPROC32:       2 entries (          88 bytes)
-                                  S_TRAMPOLINE:       2 entries (          40 bytes)
+                                  S_TRAMPOLINE:       4 entries (          80 bytes)
                                     S_COMPILE3:       1 entries (          40 bytes)
                                      S_BPREL32:       2 entries (          32 bytes)
                                          S_END:       2 entries (           8 bytes)
     
       Chunks
-                                         Total:       3 entries (         224 bytes)
+                                         Total:       3 entries (         248 bytes)
       --------------------------------------------------------------------------
                                  DEBUG_S_LINES:       2 entries (         192 bytes)
-                            DEBUG_S_FILECHKSMS:       1 entries (          32 bytes)
+                            DEBUG_S_FILECHKSMS:       1 entries (          56 bytes)
 
 
                      S_UDT Record Stats                     
@@ -131,63 +117,43 @@ Mod 0002 | `* Linker *`:
 
                           Modules                           
 ============================================================
-  Mod 0000 | `* Linker Generated Manifest RES *`: 
+  Mod 0000 | `D:/dummy.obj`: 
   SC[???]  | mod = 0, 0000:0000, size = 0, data crc = 0, reloc crc = 0
           none
-  Obj: ``: 
-  debug stream: 65535, # files: 0, has ec info: false
+  Obj: `D:/dummy.obj`: 
+  debug stream: 11, # files: 2, has ec info: false
   pdb file ni: 0 ``, src file ni: 0 ``
-Mod 0001 | `D:/dummy.obj`: 
-SC[???]  | mod = 0, 0000:0000, size = 0, data crc = 0, reloc crc = 0
-        none
-Obj: `D:/dummy.obj`: 
-debug stream: 11, # files: 1, has ec info: false
-pdb file ni: 0 ``, src file ni: 0 ``
-Mod 0002 | `* Linker *`: 
-SC[???]  | mod = 0, 0000:0000, size = 0, data crc = 0, reloc crc = 0
-        none
-Obj: ``: 
-debug stream: 12, # files: 0, has ec info: false
-pdb file ni: 0 ``, src file ni: 0 ``
 
                            Files                            
 ============================================================
-Mod 0000 | `* Linker Generated Manifest RES *`: 
-Mod 0001 | `D:/dummy.obj`: 
-- (no checksum) C:\Users\localhost\Documents\GitHub\PdbGen\Generated\Main.cpp
-Mod 0002 | `* Linker *`: 
+Mod 0000 | `D:/dummy.obj`: 
+- (no checksum) C:/Users/localhost/Documents/GitHub/PdbGen/Generated/Main.cpp
+- (no checksum) C:/Users/localhost/Documents/GitHub/PdbGen/Generated/Main.cpp
 
                            Lines                            
 ============================================================
-Mod 0000 | `* Linker Generated Manifest RES *`: 
-Mod 0001 | `D:/dummy.obj`: 
+Mod 0000 | `D:/dummy.obj`: 
 (unknown file name offset 0)
   0001:00000020-00000050, line/addr entries = 7
      6 00000020      7 00000023      8 0000002C      9 00000033     10 0000003C     11 0000004B     12 0000004E   
   
+(unknown file name offset 24)
   0001:00000050-0000009B, line/addr entries = 9
     14 00000050     15 00000054     16 0000005B     17 0000006B     18 00000074     19 0000007C     20 00000085     21 00000094   
     22 00000097   
   
-Mod 0002 | `* Linker *`: 
 
                        Inlinee Lines                        
 ============================================================
-Mod 0000 | `* Linker Generated Manifest RES *`: 
-Mod 0001 | `D:/dummy.obj`: 
-Mod 0002 | `* Linker *`: 
+Mod 0000 | `D:/dummy.obj`: 
 
                     Cross Module Imports                    
 ============================================================
-Mod 0000 | `* Linker Generated Manifest RES *`: 
-Mod 0001 | `D:/dummy.obj`: 
-Mod 0002 | `* Linker *`: 
+Mod 0000 | `D:/dummy.obj`: 
 
                     Cross Module Exports                    
 ============================================================
-Mod 0000 | `* Linker Generated Manifest RES *`: 
-Mod 0001 | `D:/dummy.obj`: 
-Mod 0002 | `* Linker *`: 
+Mod 0000 | `D:/dummy.obj`: 
 
                         Old FPO Data                        
 ============================================================
@@ -236,10 +202,6 @@ Mod 0002 | `* Linker *`:
                        Global Symbols                       
 ============================================================
   Records
-      68 | S_PROCREF [size = 20] `main`
-           module = 2, sum name = 0, offset = 244
-      48 | S_PROCREF [size = 20] `foo`
-           module = 2, sum name = 0, offset = 148
 
                        Public Symbols                       
 ============================================================
@@ -251,30 +213,31 @@ Mod 0002 | `* Linker *`:
 
                           Symbols                           
 ============================================================
-  Mod 0000 | `* Linker Generated Manifest RES *`: 
-  Error loading module stream 0.  The specified stream could not be loaded. Module stream not present
-Mod 0001 | `D:/dummy.obj`: 
-     4 | S_COMPILE3 [size = 40]
-         machine = intel 8080, Ver = AutoPDB v0.1, language = c++
-         frontend = 0.0.0.0, backend = 14.10.25019.0
-         flags = none
-    44 | S_GPROC32 [size = 44] `foo`
-         parent = 0, end = 104, addr = 0001:0032, code size = 48
-         type = `0x1001 (int (int))`, debug start = 0, debug end = 0, flags = has fp
-    88 | S_BPREL32 [size = 16] `bar`
-         type = 0x0074 (int), offset = 8
-   104 | S_END [size = 4]
-   108 | S_GPROC32 [size = 44] `main`
-         parent = 0, end = 168, addr = 0001:0080, code size = 75
-         type = `0x1001 (int (int))`, debug start = 0, debug end = 0, flags = has fp
-   152 | S_BPREL32 [size = 16] `a`
-         type = 0x0074 (int), offset = -4
-   168 | S_END [size = 4]
-Mod 0002 | `* Linker *`: 
-     4 | S_TRAMPOLINE [size = 20]
-         type = tramp incremental, size = 5, source = 0001:0005, target = 0001:0005
-    24 | S_TRAMPOLINE [size = 20]
-         type = tramp incremental, size = 5, source = 0001:0010, target = 0001:0010
+  Mod 0000 | `D:/dummy.obj`: 
+       4 | S_COMPILE3 [size = 40]
+           machine = intel 8080, Ver = AutoPDB v0.1, language = c++
+           frontend = 0.0.0.0, backend = 14.10.25019.0
+           flags = none
+      44 | S_TRAMPOLINE [size = 20]
+           type = tramp incremental, size = 5, source = 0001:0005, target = 0001:0005
+      64 | S_GPROC32 [size = 44] `foo`
+           parent = 0, end = 104, addr = 0001:0032, code size = 48
+           type = `<no type>`, debug start = 0, debug end = 0, flags = has fp
+     108 | S_BPREL32 [size = 16] `bar`
+           type = 0x0074 (int), offset = 8
+     124 | S_END [size = 4]
+     128 | S_TRAMPOLINE [size = 20]
+           type = tramp incremental, size = 5, source = 0001:0005, target = 0001:0005
+     148 | S_TRAMPOLINE [size = 20]
+           type = tramp incremental, size = 5, source = 0001:0010, target = 0001:0010
+     168 | S_GPROC32 [size = 44] `main`
+           parent = 0, end = 208, addr = 0001:0080, code size = 75
+           type = `<no type>`, debug start = 0, debug end = 0, flags = has fp
+     212 | S_BPREL32 [size = 16] `a`
+           type = 0x0074 (int), offset = -4
+     228 | S_END [size = 4]
+     232 | S_TRAMPOLINE [size = 20]
+           type = tramp incremental, size = 5, source = 0001:0010, target = 0001:0010
 
                       Section Headers                       
 ============================================================
@@ -328,9 +291,14 @@ Mod 0002 | `* Linker *`:
 
                    Section Contributions                    
 ============================================================
-  SC[.text]   | mod = 2, 0001:0000, size = 15, data crc = 0, reloc crc = 0
+  SC[.text]   | mod = 0, 0001:0005, size = 5, data crc = 0, reloc crc = 0
                 IMAGE_SCN_CNT_CODE | IMAGE_SCN_MEM_EXECUTE | IMAGE_SCN_MEM_READ
-  SC[.text]   | mod = 1, 0001:0032, size = 123, data crc = 0, reloc crc = 0
+  SC[.text]   | mod = 0, 0001:0032, size = 48, data crc = 0, reloc crc = 0
+                IMAGE_SCN_CNT_CODE | IMAGE_SCN_ALIGN_16BYTES | IMAGE_SCN_MEM_EXECUTE | 
+                IMAGE_SCN_MEM_READ
+  SC[.text]   | mod = 0, 0001:0010, size = 5, data crc = 0, reloc crc = 0
+                IMAGE_SCN_CNT_CODE | IMAGE_SCN_MEM_EXECUTE | IMAGE_SCN_MEM_READ
+  SC[.text]   | mod = 0, 0001:0080, size = 75, data crc = 0, reloc crc = 0
                 IMAGE_SCN_CNT_CODE | IMAGE_SCN_ALIGN_16BYTES | IMAGE_SCN_MEM_EXECUTE | 
                 IMAGE_SCN_MEM_READ
 
