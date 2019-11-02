@@ -110,14 +110,17 @@ CVSymbol CreateSymbol(SymType& sym) {
 }
 
 void Main::AddFunction(const Function& function) {
+    // Add line number <-> address associations
+    auto debugSubsection = make_shared<DebugLinesSubsection>(*_checksums, *_strings);
+    debugSubsection->createBlock(function.filename);
+    debugSubsection->setCodeSize(function.length);
+    debugSubsection->setRelocationAddress(function.segment, function.offset);
+    for (const auto& [offset, line] : function.lines) {
+        debugSubsection->addLineInfo(offset, LineInfo(line, line, true)); // Offset, Start, End, isStatement
+    }
+    _module->addDebugSubsection(debugSubsection);
 
-
-
-
-
-
-
-
+    // Add symbols for the functions, locals, and thunks
     std::vector<CVSymbol> symbols;
 
     auto procSym = ProcSym(SymbolRecordKind::GlobalProcSym);
@@ -147,21 +150,49 @@ void Main::AddFunction(const Function& function) {
     for (const auto symbol : symbols) procSym.End += symbol.data().size();
     symbols[0] = CreateSymbol(procSym);
     for (const auto symbol : symbols) _module->addSymbol(symbol);
+
+    TrampolineSym sym(SymbolRecordKind::TrampolineSym);
+    sym.Type = TrampolineType::TrampIncremental;
+    sym.Size = function.thunkLength;
+    sym.ThunkOffset = function.thunkOffset; 
+    sym.ThunkSection = function.thunkSegment;
+    sym.TargetOffset = function.offset;
+    sym.TargetSection = function.segment;
+    _module->addSymbol(CreateSymbol(sym));
+
+    // Add "Section Contributions", which mark certain parts of the binary to be interpreted in specific ways.
+    {
+        SectionContrib sc{};
+        sc.Imod = _module->getModuleIndex();
+        sc.ISect = function.thunkSegment;
+        sc.Off = function.thunkOffset;
+        sc.Size = function.thunkLength;
+        sc.Characteristics = IMAGE_SCN_CNT_CODE | IMAGE_SCN_MEM_EXECUTE | IMAGE_SCN_MEM_READ;
+        _dbiBuilder->addSectionContrib(sc);
+    }
+    {
+        SectionContrib sc{};
+        sc.Imod = _module->getModuleIndex();
+        sc.ISect = function.segment;
+        sc.Off = function.offset;
+        sc.Size = function.length;
+        sc.Characteristics = IMAGE_SCN_CNT_CODE | IMAGE_SCN_ALIGN_16BYTES | IMAGE_SCN_MEM_EXECUTE | IMAGE_SCN_MEM_READ;
+        _dbiBuilder->addSectionContrib(sc);
+    }
+
 }
 
 void Main::GeneratePDB(char const* outputFileName) {
     ModuleInfo moduleInfo = ReadModuleInfo("C:/Users/localhost/Documents/GitHub/PdbGen/PdbTest/Debug/PdbTest.exe");
     // Name doesn't actually matter, since there is no real object file.
     const char* moduleName = "D:/dummy.obj";
-    // This one might matter. Unsure.
-    const char* filename = R"(C:\Users\localhost\Documents\GitHub\PdbGen\Generated\Main.cpp)";
 
     PDBFileBuilder* builder = new PDBFileBuilder(llvmAllocator);
     ExitOnErr(builder->initialize(4096)); // Blocksize
     MSFBuilder& msfBuilder = builder->getMsfBuilder();
     InfoStreamBuilder& infoBuilder = builder->getInfoBuilder();
-    DbiStreamBuilder& dbiBuilder = builder->getDbiBuilder();
-    DebugStringTableSubsection* strings = new DebugStringTableSubsection();
+    _dbiBuilder = &builder->getDbiBuilder();
+    _strings = new DebugStringTableSubsection();
     GSIStreamBuilder& gsiBuilder = builder->getGsiBuilder();
     TpiStreamBuilder& tpiBuilder = builder->getTpiBuilder();
     TpiStreamBuilder& ipiBuilder = builder->getIpiBuilder();
@@ -177,25 +208,25 @@ void Main::GeneratePDB(char const* outputFileName) {
     infoBuilder.setVersion(PdbImplVC70);
 
     const vector<SecMapEntry> sectionMap = DbiStreamBuilder::createSectionMap(moduleInfo.sections);
-    dbiBuilder.setSectionMap(sectionMap);
-    ExitOnErr(dbiBuilder.addDbgStream(
+    _dbiBuilder->setSectionMap(sectionMap);
+    ExitOnErr(_dbiBuilder->addDbgStream(
         DbgHeaderType::SectionHdr,
         {reinterpret_cast<const uint8_t*>(moduleInfo.sections.data()),
          moduleInfo.sections.size() * sizeof(moduleInfo.sections[0])}));
 
-    dbiBuilder.setVersionHeader(PdbDbiV70);
-    dbiBuilder.setPublicsStreamIndex(gsiBuilder.getPublicsStreamIndex());
+    _dbiBuilder->setVersionHeader(PdbDbiV70);
+    _dbiBuilder->setPublicsStreamIndex(gsiBuilder.getPublicsStreamIndex());
     
     tpiBuilder.setVersionHeader(PdbTpiV80);
     ipiBuilder.setVersionHeader(PdbTpiV80);
 
-    _module = &ExitOnErr(dbiBuilder.addModuleInfo(moduleName));
+    _module = &ExitOnErr(_dbiBuilder->addModuleInfo(moduleName));
     _module->setObjFileName(moduleName);
-    ExitOnErr(dbiBuilder.addModuleSourceFile(*_module, filename));
+    ExitOnErr(_dbiBuilder->addModuleSourceFile(*_module, fooFunction.filename));
 
-    auto checksums = make_shared<DebugChecksumsSubsection>(*strings);
-    checksums->addChecksum(filename, FileChecksumKind::MD5, ::MD5::HashFile(filename));
-    _module->addDebugSubsection(checksums);
+    _checksums = make_shared<DebugChecksumsSubsection>(*_strings);
+    _checksums->addChecksum(fooFunction.filename, FileChecksumKind::MD5, ::MD5::HashFile(fooFunction.filename));
+    _module->addDebugSubsection(_checksums);
 
     {
         // The backend version must be a valid MSVC version. See LLD documentation:
@@ -210,85 +241,8 @@ void Main::GeneratePDB(char const* outputFileName) {
         _module->addSymbol(CreateSymbol(sym));
     }
 
-    { // foo
-        auto debugSubsection = make_shared<DebugLinesSubsection>(*checksums, *strings);
-        debugSubsection->createBlock(filename);
-        debugSubsection->setCodeSize(fooFunction.length);
-        debugSubsection->setRelocationAddress(fooFunction.segment, fooFunction.offset);
-        for (const auto& [offset, line] : fooFunction.lines) {
-            debugSubsection->addLineInfo(offset, LineInfo(line, line, true)); // Offset, Start, End, isStatement
-        }
-        _module->addDebugSubsection(debugSubsection);
-    }
-
-    { // main
-        auto debugSubsection = make_shared<DebugLinesSubsection>(*checksums, *strings);
-        debugSubsection->createBlock(filename);
-        debugSubsection->setCodeSize(mainFunction.length);
-        debugSubsection->setRelocationAddress(mainFunction.segment, mainFunction.offset);
-        for (const auto& [offset, line] : mainFunction.lines) {
-            debugSubsection->addLineInfo(offset, LineInfo(line, line, true)); // Offset, Start, End, isStatement
-        }
-        _module->addDebugSubsection(debugSubsection);
-    }
-
     AddFunction(fooFunction);
     AddFunction(mainFunction);
-
-    { // Foo thunk
-        TrampolineSym sym(SymbolRecordKind::TrampolineSym);
-        sym.Type = TrampolineType::TrampIncremental;
-        sym.Size = fooFunction.thunkLength;
-        sym.ThunkOffset = fooFunction.thunkOffset; 
-        sym.ThunkSection = fooFunction.thunkSegment;
-        sym.TargetOffset = fooFunction.offset;
-        sym.TargetSection = fooFunction.segment;
-        _module->addSymbol(CreateSymbol(sym));
-
-        SectionContrib sc{};
-        sc.Imod = 0;
-        sc.ISect = fooFunction.thunkSegment;
-        sc.Off = fooFunction.thunkOffset;
-        sc.Size = fooFunction.thunkLength;
-        sc.Characteristics = IMAGE_SCN_CNT_CODE | IMAGE_SCN_MEM_EXECUTE | IMAGE_SCN_MEM_READ;
-        dbiBuilder.addSectionContrib(sc);
-    }
-    { // Main thunk
-        TrampolineSym sym(SymbolRecordKind::TrampolineSym);
-        sym.Type = TrampolineType::TrampIncremental;
-        sym.Size = mainFunction.thunkLength;
-        sym.ThunkOffset = mainFunction.thunkOffset; 
-        sym.ThunkSection = mainFunction.thunkSegment;
-        sym.TargetOffset = mainFunction.offset;
-        sym.TargetSection = mainFunction.segment;
-        _module->addSymbol(CreateSymbol(sym));
-
-        SectionContrib sc{};
-        sc.Imod = 0;
-        sc.ISect = mainFunction.thunkSegment;
-        sc.Off = mainFunction.thunkOffset;
-        sc.Size = mainFunction.thunkLength;
-        sc.Characteristics = IMAGE_SCN_CNT_CODE | IMAGE_SCN_MEM_EXECUTE | IMAGE_SCN_MEM_READ;
-        dbiBuilder.addSectionContrib(sc);
-    }
-    {
-        SectionContrib sc{};
-        sc.Imod = 0;
-        sc.ISect = fooFunction.segment;
-        sc.Off = fooFunction.offset;
-        sc.Size = fooFunction.length;
-        sc.Characteristics = IMAGE_SCN_CNT_CODE | IMAGE_SCN_ALIGN_16BYTES | IMAGE_SCN_MEM_EXECUTE | IMAGE_SCN_MEM_READ;
-        dbiBuilder.addSectionContrib(sc);
-    }
-    {
-        SectionContrib sc{};
-        sc.Imod = 0;
-        sc.ISect = mainFunction.segment;
-        sc.Off = mainFunction.offset;
-        sc.Size = mainFunction.length;
-        sc.Characteristics = IMAGE_SCN_CNT_CODE | IMAGE_SCN_ALIGN_16BYTES | IMAGE_SCN_MEM_EXECUTE | IMAGE_SCN_MEM_READ;
-        dbiBuilder.addSectionContrib(sc);
-    }
 
     {
         PublicSym32 sym(SymbolRecordKind::PublicSym32);
@@ -367,6 +321,7 @@ int main(int argc, char** argv) {
     fooFunction.returnType = TypeIndex(SimpleTypeKind::Int32);
     fooFunction.properName = "?foo@@YAHH@Z";
     fooFunction.nickName = "foo";
+    fooFunction.filename = "C:/Users/localhost/Documents/GitHub/PdbGen/Generated/Main.cpp";
     fooFunction.locals.emplace_back(Local{
         8,
         TypeIndex(SimpleTypeKind::Int32),
@@ -400,6 +355,7 @@ int main(int argc, char** argv) {
     mainFunction.returnType = TypeIndex(SimpleTypeKind::Int32);
     mainFunction.properName = "_main";
     mainFunction.nickName = "main";
+    mainFunction.filename = "C:/Users/localhost/Documents/GitHub/PdbGen/Generated/Main.cpp";
     mainFunction.locals.emplace_back(Local{
         -4,
         TypeIndex(SimpleTypeKind::Int32),
