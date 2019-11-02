@@ -113,21 +113,21 @@ void GeneratePDB(ModuleInfo const& moduleInfo, char const* outputFileName)
     // I really hope this one doesn't matter.
     const char* tmpFilename = R"(C:\Users\LOCALH~1\AppData\Local\Temp\lnk{CD77352F-E54C-4392-A458-0DE42662F1A3}.tmp)";
 
-    PDBFileBuilder builder(llvmAllocator);
-    ExitOnErr(builder.initialize(4096)); // Blocksize
+    PDBFileBuilder* builder = new PDBFileBuilder(llvmAllocator);
+    ExitOnErr(builder->initialize(4096)); // Blocksize
 
     // Add each of the reserved streams. We may not put any data in them, but they at least have to be present.
     for (uint32_t i = 0; i < kSpecialStreamCount; ++i)
-        ExitOnErr(builder.getMsfBuilder().addStream(0));
+        ExitOnErr(builder->getMsfBuilder().addStream(0));
 
-    InfoStreamBuilder& infoBuilder = builder.getInfoBuilder();
+    InfoStreamBuilder& infoBuilder = builder->getInfoBuilder();
     infoBuilder.setAge(moduleInfo.age);
     infoBuilder.setGuid(moduleInfo.guid);
     infoBuilder.setSignature(moduleInfo.signature);
     infoBuilder.addFeature(PdbRaw_FeatureSig::VC140);
     infoBuilder.setVersion(PdbImplVC70);
 
-    DbiStreamBuilder& dbiBuilder = builder.getDbiBuilder();
+    DbiStreamBuilder& dbiBuilder = builder->getDbiBuilder();
     dbiBuilder.setVersionHeader(PdbDbiV70);
     dbiBuilder.setAge(moduleInfo.age);
     dbiBuilder.setBuildNumber(36375);
@@ -136,12 +136,12 @@ void GeneratePDB(ModuleInfo const& moduleInfo, char const* outputFileName)
     dbiBuilder.setFlags(1);
     dbiBuilder.setMachineType(moduleInfo.is64Bit ? PDB_Machine::Amd64 : PDB_Machine::x86);
 
-    DebugStringTableSubsection strings;
-    strings.insert("");
-    strings.insert(tmpFilename);
-    strings.insert(filename);
-    strings.insert("$T0 $ebp = $eip $T0 4 + ^ = $ebp $T0 ^ = $esp $T0 8 + = ");
-    builder.getStringTableBuilder().setStrings(strings); // Must be after inserting strings. Should probably assert that this isn't resized at the end (i.e. nobody adds more strings)
+    DebugStringTableSubsection* strings = new DebugStringTableSubsection();
+    strings->insert("");
+    strings->insert(tmpFilename);
+    strings->insert(filename);
+    strings->insert("$T0 $ebp = $eip $T0 4 + ^ = $ebp $T0 ^ = $esp $T0 8 + = ");
+    builder->getStringTableBuilder().setStrings(*strings); // Must be after inserting strings. Should probably assert that this isn't resized at the end (i.e. nobody adds more strings)
 
     const vector<SecMapEntry> sectionMap = DbiStreamBuilder::createSectionMap(moduleInfo.sections);
     dbiBuilder.setSectionMap(sectionMap);
@@ -150,14 +150,14 @@ void GeneratePDB(ModuleInfo const& moduleInfo, char const* outputFileName)
         {reinterpret_cast<const uint8_t*>(moduleInfo.sections.data()),
          moduleInfo.sections.size() * sizeof(moduleInfo.sections[0])}));
 
-    GSIStreamBuilder& gsiBuilder = builder.getGsiBuilder();
+    GSIStreamBuilder& gsiBuilder = builder->getGsiBuilder();
 
     { // Module: Linker Manifest
         DbiModuleDescriptorBuilder& module = ExitOnErr(dbiBuilder.addModuleInfo("* Linker Generated Manifest RES *"));
         module.setObjFileName("");
         ExitOnErr(dbiBuilder.addModuleSourceFile(module, R"(C:\Users\LOCALH~1\AppData\Local\Temp\lnk{CD77352F-E54C-4392-A458-0DE42662F1A3}.tmp)"));
 
-        auto checksums = make_shared<DebugChecksumsSubsection>(strings);
+        auto checksums = make_shared<DebugChecksumsSubsection>(*strings);
         checksums->addChecksum(tmpFilename, FileChecksumKind::MD5, {0xA3, 0x53, 0xD1, 0x2F, 0x29, 0x90, 0x19, 0x35, 0xF1, 0x7C, 0x81, 0x2B, 0xAE, 0x45, 0x1A, 0x23});
         module.addDebugSubsection(checksums);
 
@@ -199,12 +199,12 @@ void GeneratePDB(ModuleInfo const& moduleInfo, char const* outputFileName)
         // Add files to module (presumably necessary to associate source code lines)
         ExitOnErr(dbiBuilder.addModuleSourceFile(module, filename));
 
-        auto checksums = make_shared<DebugChecksumsSubsection>(strings);
+        auto checksums = make_shared<DebugChecksumsSubsection>(*strings);
         checksums->addChecksum(filename, FileChecksumKind::MD5, MD5::HashFile(filename));
         module.addDebugSubsection(checksums);
 
         { // foo
-            auto debugSubsection = make_shared<DebugLinesSubsection>(*checksums, strings);
+            auto debugSubsection = make_shared<DebugLinesSubsection>(*checksums, *strings);
             debugSubsection->createBlock(filename);
             debugSubsection->setCodeSize(48); // Function length (Total instruction count, including ret)
             debugSubsection->setRelocationAddress(1, 32); // Offset from the program base (?)
@@ -221,7 +221,7 @@ void GeneratePDB(ModuleInfo const& moduleInfo, char const* outputFileName)
         }
 
         { // main
-            auto debugSubsection = make_shared<DebugLinesSubsection>(*checksums, strings);
+            auto debugSubsection = make_shared<DebugLinesSubsection>(*checksums, *strings);
             debugSubsection->createBlock(filename);
             debugSubsection->setCodeSize(75); // Function length (Total instruction count, including ret)
             debugSubsection->setRelocationAddress(1, 80); // Offset from the program base (?)
@@ -545,7 +545,7 @@ void GeneratePDB(ModuleInfo const& moduleInfo, char const* outputFileName)
     // dbiBuilder.setGlobalsStreamIndex(gsiBuilder.getGlobalsStreamIndex());
     // dbiBuilder.setSymbolRecordStreamIndex(gsiBuilder.getRecordStreamIdx());
 
-    TpiStreamBuilder& tpiBuilder = builder.getTpiBuilder();
+    TpiStreamBuilder& tpiBuilder = builder->getTpiBuilder();
     tpiBuilder.setVersionHeader(PdbTpiV80);
     {
         {
@@ -591,135 +591,16 @@ void GeneratePDB(ModuleInfo const& moduleInfo, char const* outputFileName)
     frameData.PrologSize = 4;
     frameData.SavedRegsSize = 0;
     frameData.Flags = !FrameData::HasSEH | !FrameData::HasEH | FrameData::IsFunctionStart;
-    frameData.FrameFunc = strings.getIdForString("$T0 $ebp = $eip $T0 4 + ^ = $ebp $T0 ^ = $esp $T0 8 + = ");
+    frameData.FrameFunc = strings->getIdForString("$T0 $ebp = $eip $T0 4 + ^ = $ebp $T0 ^ = $esp $T0 8 + = ");
     dbiBuilder.addNewFpoData(frameData);
 
-    ExitOnErr(builder.addNamedStream("/src/headerblock", ""));
-
-    TpiStreamBuilder& ipiBuilder = builder.getIpiBuilder();
+    TpiStreamBuilder& ipiBuilder = builder->getIpiBuilder();
     ipiBuilder.setVersionHeader(PdbTpiV80);
 
-    {
-        {
-            StringIdRecord record(TypeRecordKind::StringId);
-            record.Id = TypeIndex(0);
-            record.String = R"(C:\Users\localhost\Documents\GitHub\PdbGen\PdbTest)";
-            CVType cvt = ttb.getType(ttb.writeLeafType(record));
-            ipiBuilder.addTypeRecord(cvt.RecordData, ExitOnErr(hashTypeRecord(cvt)));
-        }
-        {
-            StringIdRecord record(TypeRecordKind::StringId);
-            record.Id = TypeIndex(0);
-            record.String = R"#(C:\Program Files (x86)\Microsoft Visual Studio\2019\Community\VC\Tools\MSVC\14.23.28105\bin\HostX86\x86\CL.exe)#";
-            CVType cvt = ttb.getType(ttb.writeLeafType(record));
-            ipiBuilder.addTypeRecord(cvt.RecordData, ExitOnErr(hashTypeRecord(cvt)));
-        }
-        {
-            StringIdRecord record(TypeRecordKind::StringId);
-            record.Id = TypeIndex(0);
-            record.String = R"(Main.cpp)";
-            CVType cvt = ttb.getType(ttb.writeLeafType(record));
-            ipiBuilder.addTypeRecord(cvt.RecordData, ExitOnErr(hashTypeRecord(cvt)));
-        }
-        {
-            StringIdRecord record(TypeRecordKind::StringId);
-            record.Id = TypeIndex(0);
-            record.String = R"(C:\Users\localhost\Documents\GitHub\PdbGen\PdbTest\Debug\vc142.pdb)";
-            CVType cvt = ttb.getType(ttb.writeLeafType(record));
-            ipiBuilder.addTypeRecord(cvt.RecordData, ExitOnErr(hashTypeRecord(cvt)));
-        }
-        {
-            StringIdRecord record(TypeRecordKind::StringId);
-            record.Id = TypeIndex(0);
-            record.String = R"#(-c -Zi -nologo -W3 -WX- -diagnostics:column -Od -D_MBCS -Gm- -MDd -GS- -Za -Zc:wchar_t- -Zc:forScope- -Zc:rvalueCast- -GR- -Gd -TP -analyze- -FC -Zl -errorreport:prompt -I"C:\Program Files (x86)\Microsoft Visual Studio\2019\Community\VC\Tools\MSVC\14.23.28105)#";
-            CVType cvt = ttb.getType(ttb.writeLeafType(record));
-            ipiBuilder.addTypeRecord(cvt.RecordData, ExitOnErr(hashTypeRecord(cvt)));
-        }
-        {
-            StringIdRecord record(TypeRecordKind::StringId);
-            record.Id = TypeIndex(0);
-            record.String = R"#(\include" -I"C:\Program Files (x86)\Microsoft Visual Studio\2019\Community\VC\Tools\MSVC\14.23.28105\atlmfc\include" -I"C:\Program Files (x86)\Microsoft Visual Studio\2019\Community\VC\Auxiliary\VS\include" -I"C:\Program Files (x86)\Windows)#";
-            CVType cvt = ttb.getType(ttb.writeLeafType(record));
-            ipiBuilder.addTypeRecord(cvt.RecordData, ExitOnErr(hashTypeRecord(cvt)));
-        }
-        {
-            StringIdRecord record(TypeRecordKind::StringId);
-            record.Id = TypeIndex(0);
-            record.String = R"#( Kits\10\Include\10.0.18362.0\ucrt" -I"C:\Program Files (x86)\Windows Kits\10\Include\10.0.18362.0\um" -I"C:\Program Files (x86)\Windows Kits\10\Include\10.0.18362.0\shared" -I"C:\Program Files (x86)\Windows Kits\10\Include\10.0.18362.0\winrt")#";
-            CVType cvt = ttb.getType(ttb.writeLeafType(record));
-            ipiBuilder.addTypeRecord(cvt.RecordData, ExitOnErr(hashTypeRecord(cvt)));
-        }
-        {
-            StringListRecord record(TypeRecordKind::StringList);
-            record.StringIndices = {TypeIndex(0x1004), TypeIndex(0x1005), TypeIndex(0x1006)};
-            CVType cvt = ttb.getType(ttb.writeLeafType(record));
-            ipiBuilder.addTypeRecord(cvt.RecordData, ExitOnErr(hashTypeRecord(cvt)));
-        }
-        {
-            StringIdRecord record(TypeRecordKind::StringId);
-            record.Id = TypeIndex(0);
-            record.String = R"#( -I"C:\Program Files (x86)\Windows Kits\10\Include\10.0.18362.0\cppwinrt" -IC:\Users\localhost\Documents\GitHub\PdbGen\PdbTest\Include\um -X)#";
-            CVType cvt = ttb.getType(ttb.writeLeafType(record));
-            ipiBuilder.addTypeRecord(cvt.RecordData, ExitOnErr(hashTypeRecord(cvt)));
-        }
-        {
-            BuildInfoRecord record(TypeRecordKind::BuildInfo);
-            record.ArgIndices = {TypeIndex(0x1000), TypeIndex(0x1001), TypeIndex(0x1002), TypeIndex(0x1003), TypeIndex(0x1008)};
-            CVType cvt = ttb.getType(ttb.writeLeafType(record));
-            ipiBuilder.addTypeRecord(cvt.RecordData, ExitOnErr(hashTypeRecord(cvt)));
-        }
-    }
-
-    /* Things that I'm potentially missing:
-        40 bytes of "Old MSF directory"
-        +6 bytes of PDB Stream
-        269 bytes of DBI Stream
-        12 bytes of Public Symbol Hash
-        4 bytes of Main.obj module
-    */
-    /*                    Modules
-============================================================
-  Mod 0000 | `* Linker Generated Manifest RES *`: 
-  SC[???]  | mod = 65535, 65535:0000, size = -1, data crc = 0, reloc crc = 0
-          none
-  Obj: ``: 
-  debug stream: 11, # files: 1, has ec info: false
-  pdb file ni: 0 ``, src file ni: 0 ``
-Mod 0001 | `C:\Users\localhost\Documents\GitHub\PdbGen\PdbTest\Debug\Main.obj`: 
-SC[.text]  | mod = 1, 0001:0016, size = 59, data crc = 804367154, reloc crc = 0
-        IMAGE_SCN_CNT_CODE | IMAGE_SCN_ALIGN_16BYTES | IMAGE_SCN_MEM_EXECUTE | 
-        IMAGE_SCN_MEM_READ
-Obj: `C:\Users\localhost\Documents\GitHub\PdbGen\PdbTest\Debug\Main.obj`: 
-debug stream: 14, # files: 1, has ec info: false
-pdb file ni: 0 ``, src file ni: 0 ``
-Mod 0002 | `* Linker *`: 
-SC[.text]  | mod = 2, 0001:0000, size = 10, data crc = 0, reloc crc = 0
-        IMAGE_SCN_CNT_CODE | IMAGE_SCN_MEM_EXECUTE | IMAGE_SCN_MEM_READ
-Obj: ``: 
-debug stream: 15, # files: 0, has ec info: false
-pdb file ni: 1 `C:\Users\localhost\Documents\GitHub\PdbGen\PdbTest\Debug\PdbTest.pdb`, src file ni: 0 ``
-    */
-    /*             Section Contributions
-============================================================
-  SC[.text]   | mod = 2, 0001:0000, size = 10, data crc = 0, reloc crc = 0
-                IMAGE_SCN_CNT_CODE | IMAGE_SCN_MEM_EXECUTE | IMAGE_SCN_MEM_READ
-  SC[.text]   | mod = 1, 0001:0016, size = 59, data crc = 804367154, reloc crc = 0
-                IMAGE_SCN_CNT_CODE | IMAGE_SCN_ALIGN_16BYTES | IMAGE_SCN_MEM_EXECUTE | 
-                IMAGE_SCN_MEM_READ
-  SC[.rdata]  | mod = 2, 0002:0000, size = 56, data crc = 0, reloc crc = 0
-                IMAGE_SCN_CNT_INITIALIZED_DATA | IMAGE_SCN_MEM_READ
-  SC[.rdata]  | mod = 2, 0002:0324, size = 93, data crc = 0, reloc crc = 0
-                IMAGE_SCN_CNT_INITIALIZED_DATA | IMAGE_SCN_ALIGN_4BYTES | IMAGE_SCN_MEM_READ
-  SC[.rdata]  | mod = 2, 0002:0420, size = 20, data crc = 0, reloc crc = 0
-                IMAGE_SCN_CNT_INITIALIZED_DATA | IMAGE_SCN_ALIGN_4BYTES | IMAGE_SCN_MEM_READ
-  SC[.rsrc]   | mod = 0, 0003:0000, size = 88, data crc = 0, reloc crc = 0
-                IMAGE_SCN_CNT_INITIALIZED_DATA | IMAGE_SCN_MEM_READ
-  SC[.rsrc]   | mod = 0, 0003:0368, size = 384, data crc = 0, reloc crc = 0
-                IMAGE_SCN_CNT_INITIALIZED_DATA | IMAGE_SCN_MEM_READ
-    */
     GUID ignoredOutGuid;
     // Also commits all other stream builders.
-    ExitOnErr(builder.commit(outputFileName, &ignoredOutGuid));
+    ExitOnErr(builder->commit(outputFileName, &ignoredOutGuid));
+    ::exit(0);
 }
 
 int main(int argc, char** argv) {
