@@ -1,0 +1,311 @@
+
+
+                          Summary                           
+============================================================
+  Block Size: 4096
+  Number of blocks: 15
+  Number of streams: 12
+  Signature: 1572589157
+  Age: 1
+  GUID: {A4DC5ADC-CB5F-B34A-A9D2-4AAED67398DF}
+  Features: 0x1
+  Has Debug Info: true
+  Has Types: true
+  Has IDs: true
+  Has Globals: true
+  Has Publics: true
+  Is incrementally linked: false
+  Has conflicting types: false
+  Is stripped: false
+
+
+                          Streams                           
+============================================================
+  Stream  0 (  0 bytes): [Old MSF Directory]
+             Blocks: []
+  Stream  1 ( 93 bytes): [PDB Stream]
+             Blocks: [13]
+  Stream  2 ( 56 bytes): [TPI Stream]
+             Blocks: [7]
+  Stream  3 (415 bytes): [DBI Stream]
+             Blocks: [10]
+  Stream  4 ( 56 bytes): [IPI Stream]
+             Blocks: [12]
+  Stream  5 (  0 bytes): [Named Stream "/LinkInfo"]
+             Blocks: []
+  Stream  6 (556 bytes): [Global Symbol Hash]
+             Blocks: [4]
+  Stream  7 (592 bytes): [Public Symbol Hash]
+             Blocks: [5]
+  Stream  8 ( 88 bytes): [Symbol Records]
+             Blocks: [6]
+  Stream  9 (120 bytes): [Section Header Data]
+             Blocks: [8]
+  Stream 10 (560 bytes): [Module "D:/dummy.obj"]
+             Blocks: [9]
+  Stream 11 ( 25 bytes): [Named Stream "/names"]
+             Blocks: [11]
+
+
+                        Module Stats                        
+============================================================
+Mod 0000 | `* Linker Generated Manifest RES *`: 
+  Mod 0 (debug info not present): [* Linker Generated Manifest RES *]
+Mod 0001 | `D:/dummy.obj`: 
+  Stream 10, 560 bytes
+  
+    Symbols
+                                       Total:      11 entries (         336 bytes)
+    --------------------------------------------------------------------------
+                                   S_GPROC32:       2 entries (          88 bytes)
+                                   S_OBJNAME:       1 entries (          76 bytes)
+                                 S_FRAMEPROC:       2 entries (          64 bytes)
+                                  S_COMPILE3:       1 entries (          60 bytes)
+                                   S_BPREL32:       2 entries (          32 bytes)
+                                       S_END:       2 entries (           8 bytes)
+                                S_UNAMESPACE:       1 entries (           8 bytes)
+  
+    Chunks
+                                       Total:       3 entries (         216 bytes)
+    --------------------------------------------------------------------------
+                               DEBUG_S_LINES:       2 entries (         184 bytes)
+                          DEBUG_S_FILECHKSMS:       1 entries (          32 bytes)
+  Summary |
+    
+      Symbols
+                                         Total:      11 entries (         336 bytes)
+      --------------------------------------------------------------------------
+                                     S_GPROC32:       2 entries (          88 bytes)
+                                     S_OBJNAME:       1 entries (          76 bytes)
+                                   S_FRAMEPROC:       2 entries (          64 bytes)
+                                    S_COMPILE3:       1 entries (          60 bytes)
+                                     S_BPREL32:       2 entries (          32 bytes)
+                                         S_END:       2 entries (           8 bytes)
+                                  S_UNAMESPACE:       1 entries (           8 bytes)
+    
+      Chunks
+                                         Total:       3 entries (         216 bytes)
+      --------------------------------------------------------------------------
+                                 DEBUG_S_LINES:       2 entries (         184 bytes)
+                            DEBUG_S_FILECHKSMS:       1 entries (          32 bytes)
+
+
+                     S_UDT Record Stats                     
+============================================================
+    
+      Record Kind | Count  Size
+    ----------------------------
+    ----------------------------
+    Total (S_UDT) |     0     0
+    ----------------------------
+
+
+                        String Table                        
+============================================================
+  ID | String
+  
+  String Table Header:
+    Signature: 4026462206
+    Hash Version: 1
+    Name Buffer Size: 1
+    
+  Name Buffer (
+    0000: 00                                                                       |.|
+  )
+  
+  Hash Table:
+    Bucket Count: 1
+    Bucket[0] : 0
+    Name Count: 0
+
+
+                          Modules                           
+============================================================
+  Mod 0000 | `* Linker Generated Manifest RES *`: 
+  SC[???]  | mod = 0, 0000:0000, size = 0, data crc = 0, reloc crc = 0
+          none
+  Obj: ``: 
+  debug stream: 65535, # files: 0, has ec info: false
+  pdb file ni: 0 ``, src file ni: 0 ``
+Mod 0001 | `D:/dummy.obj`: 
+SC[???]  | mod = 0, 0000:0000, size = 0, data crc = 0, reloc crc = 0
+        none
+Obj: `D:/dummy.obj`: 
+debug stream: 10, # files: 1, has ec info: false
+pdb file ni: 0 ``, src file ni: 0 ``
+
+                           Files                            
+============================================================
+Mod 0000 | `* Linker Generated Manifest RES *`: 
+Mod 0001 | `D:/dummy.obj`: 
+- (no checksum) C:/Users/localhost/Documents/Github/PdbGen/Generated/Main.cpp
+
+                           Lines                            
+============================================================
+Mod 0000 | `* Linker Generated Manifest RES *`: 
+Mod 0001 | `D:/dummy.obj`: 
+(unknown file name offset 0)
+  0001:00000020-00000050, line/addr entries = 7
+     6 00000020      7 00000023      8 0000002C      9 00000033     10 0000003C     11 0000004B     12 0000004E   
+  
+  0001:00000050-0000008B, line/addr entries = 8
+    10 00000050     11 00000054     12 0000005B     13 00000064     14 0000006C     15 00000075     16 00000084     17 00000087   
+  
+
+                       Inlinee Lines                        
+============================================================
+Mod 0000 | `* Linker Generated Manifest RES *`: 
+Mod 0001 | `D:/dummy.obj`: 
+
+                    Cross Module Imports                    
+============================================================
+Mod 0000 | `* Linker Generated Manifest RES *`: 
+Mod 0001 | `D:/dummy.obj`: 
+
+                    Cross Module Exports                    
+============================================================
+Mod 0000 | `* Linker Generated Manifest RES *`: 
+Mod 0001 | `D:/dummy.obj`: 
+
+                        Old FPO Data                        
+============================================================
+    FPO stream not present
+
+                        New FPO Data                        
+============================================================
+    New FPO stream not present
+
+                     Types (TPI Stream)                     
+============================================================
+  Showing 0 records
+  
+  Header Version: 20040203
+  Hash Stream Index: 65535
+  Aux Hash Stream Index: 65535
+  Hash Key Size: 4
+  Num Hash Buckets: 262143
+  Type Index Offsets:
+  
+  Hash Adjusters:
+
+                     Types (IPI Stream)                     
+============================================================
+  Showing 0 records
+  
+  Header Version: 20040203
+  Hash Stream Index: 65535
+  Aux Hash Stream Index: 65535
+  Hash Key Size: 4
+  Num Hash Buckets: 262143
+  Type Index Offsets:
+  
+  Hash Adjusters:
+
+                       Global Symbols                       
+============================================================
+  Records
+      68 | S_PROCREF [size = 20] `main`
+           module = 2, sum name = 0, offset = 244
+      48 | S_PROCREF [size = 20] `foo`
+           module = 2, sum name = 0, offset = 148
+
+                       Public Symbols                       
+============================================================
+  Records
+       0 | S_PUB32 [size = 28] `?foo@@YAHH@Z`
+           flags = function, addr = 0001:0032
+      28 | S_PUB32 [size = 20] `_main`
+           flags = function, addr = 0001:0080
+
+                          Symbols                           
+============================================================
+  Mod 0000 | `* Linker Generated Manifest RES *`: 
+  Error loading module stream 0.  The specified stream could not be loaded. Module stream not present
+Mod 0001 | `D:/dummy.obj`: 
+     4 | S_OBJNAME [size = 76] sig=0, `C:/Users/localhost/Documents/GitHub/PdbGen/PdbTest/Debug/asdf.obj`
+    80 | S_COMPILE3 [size = 60]
+         machine = intel 8080, Ver = Microsoft (R) Optimizing Compiler, language = c++
+         frontend = 0.0.0.0, backend = 19.23.28016.4
+         flags = none
+   140 | S_UNAMESPACE [size = 8] ``
+   148 | S_GPROC32 [size = 44] `foo`
+         parent = 0, end = 240, addr = 0001:0032, code size = 48
+         type = `<no type>`, debug start = 0, debug end = 0, flags = none
+   192 | S_FRAMEPROC [size = 32]
+         size = 4, padding size = 0, offset to padding = 0
+         bytes of callee saved registers = 0, exception handler addr = 0000:0000
+         local fp reg = EBX, param fp reg = NONE
+         flags = has longjmp | has inline asm | has seh | naked | no stack order | inlined | pgo | has profile counts | guard cfw
+   224 | S_BPREL32 [size = 16] `q`
+         type = 0x0072 (__int16), offset = -4
+   240 | S_END [size = 4]
+   244 | S_GPROC32 [size = 44] `main`
+         parent = 0, end = 240, addr = 0001:0080, code size = 59
+         type = `<no type>`, debug start = 0, debug end = 0, flags = none
+   288 | S_FRAMEPROC [size = 32]
+         size = 4, padding size = 0, offset to padding = 0
+         bytes of callee saved registers = 0, exception handler addr = 0000:0000
+         local fp reg = EBX, param fp reg = NONE
+         flags = has longjmp | has inline asm | has seh | naked | no stack order | inlined | pgo | has profile counts | guard cfw
+   320 | S_BPREL32 [size = 16] `b`
+         type = 0x0072 (__int16), offset = -4
+   336 | S_END [size = 4]
+
+                      Section Headers                       
+============================================================
+  
+  SECTION HEADER #1
+     .text name
+      10C1 virtual size
+      1000 virtual address
+      1200 size of raw data
+       400 file pointer to raw data
+         0 file pointer to relocation table
+         0 file pointer to line numbers
+         0 number of relocations
+         0 number of line numbers
+  60000020 flags
+           IMAGE_SCN_CNT_CODE
+           IMAGE_SCN_MEM_EXECUTE
+           IMAGE_SCN_MEM_READ
+  
+  SECTION HEADER #2
+    .rdata name
+       2CF virtual size
+      3000 virtual address
+       400 size of raw data
+      1600 file pointer to raw data
+         0 file pointer to relocation table
+         0 file pointer to line numbers
+         0 number of relocations
+         0 number of line numbers
+  40000040 flags
+           IMAGE_SCN_CNT_INITIALIZED_DATA
+           IMAGE_SCN_MEM_READ
+  
+  SECTION HEADER #3
+     .rsrc name
+       43C virtual size
+      4000 virtual address
+       600 size of raw data
+      1A00 file pointer to raw data
+         0 file pointer to relocation table
+         0 file pointer to line numbers
+         0 number of relocations
+         0 number of line numbers
+  40000040 flags
+           IMAGE_SCN_CNT_INITIALIZED_DATA
+           IMAGE_SCN_MEM_READ
+
+                  Original Section Headers                  
+============================================================
+  PDB does not contain the requested image section header type
+
+                   Section Contributions                    
+============================================================
+  SC[.text]   | mod = 1, 0001:0050, size = 107, data crc = 0, reloc crc = 0
+                IMAGE_SCN_CNT_CODE | IMAGE_SCN_ALIGN_16BYTES | IMAGE_SCN_MEM_EXECUTE | 
+                IMAGE_SCN_MEM_READ
+
+                        Section Map                         
+============================================================

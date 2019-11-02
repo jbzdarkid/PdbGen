@@ -1,0 +1,516 @@
+
+
+                          Summary                           
+============================================================
+  Block Size: 4096
+  Number of blocks: 25
+  Number of streams: 18
+  Signature: 1572588623
+  Age: 1
+  GUID: {4BAC46E7-ED2E-6A41-AAAE-CCAAE0C58F91}
+  Features: 0x1
+  Has Debug Info: true
+  Has Types: true
+  Has IDs: true
+  Has Globals: true
+  Has Publics: true
+  Is incrementally linked: true
+  Has conflicting types: false
+  Is stripped: false
+
+
+                          Streams                           
+============================================================
+  Stream  0 (  40 bytes): [Old MSF Directory]
+             Blocks: [8]
+  Stream  1 ( 118 bytes): [PDB Stream]
+             Blocks: [19]
+  Stream  2 ( 108 bytes): [TPI Stream]
+             Blocks: [18]
+  Stream  3 (1008 bytes): [DBI Stream]
+             Blocks: [15]
+  Stream  4 (1304 bytes): [IPI Stream]
+             Blocks: [20]
+  Stream  5 (   0 bytes): [Named Stream "/LinkInfo"]
+             Blocks: []
+  Stream  6 ( 556 bytes): [Global Symbol Hash]
+             Blocks: [12]
+  Stream  7 ( 608 bytes): [Public Symbol Hash]
+             Blocks: [14]
+  Stream  8 (  88 bytes): [Symbol Records]
+             Blocks: [13]
+  Stream  9 (   0 bytes): [Named Stream "/src/headerblock"]
+             Blocks: []
+  Stream 10 ( 120 bytes): [Section Header Data]
+             Blocks: [11]
+  Stream 11 ( 360 bytes): [Module "* Linker Generated Manifest RES *"]
+             Blocks: [6]
+  Stream 12 (  64 bytes): [New FPO Data]
+             Blocks: [16]
+  Stream 13 ( 250 bytes): [Named Stream "/names"]
+             Blocks: [17]
+  Stream 14 ( 576 bytes): [Module "C:\Users\localhost\Documents\GitHub\PdbGen\PdbTest\Debug\Main.obj"]
+             Blocks: [7]
+  Stream 15 (1080 bytes): [Module "* Linker *"]
+             Blocks: [10]
+  Stream 16 (  24 bytes): [TPI Hash]
+             Blocks: [21]
+  Stream 17 (  48 bytes): [IPI Hash]
+             Blocks: [22]
+
+
+                        Module Stats                        
+============================================================
+Mod 0000 | `* Linker Generated Manifest RES *`: 
+  Stream 11, 360 bytes
+  
+    Symbols
+                                       Total:       3 entries (         320 bytes)
+    --------------------------------------------------------------------------
+                                  S_ENVBLOCK:       1 entries (         180 bytes)
+                                   S_OBJNAME:       1 entries (          92 bytes)
+                                  S_COMPILE3:       1 entries (          48 bytes)
+  
+    Chunks
+                                       Total:       1 entries (          32 bytes)
+    --------------------------------------------------------------------------
+                          DEBUG_S_FILECHKSMS:       1 entries (          32 bytes)
+Mod 0001 | `C:\Users\localhost\Documents\GitHub\PdbGen\PdbTest\Debug\Main.obj`: 
+  Stream 14, 576 bytes
+  
+    Symbols
+                                       Total:      12 entries (         344 bytes)
+    --------------------------------------------------------------------------
+                                   S_GPROC32:       2 entries (          88 bytes)
+                                   S_OBJNAME:       1 entries (          76 bytes)
+                                 S_FRAMEPROC:       2 entries (          64 bytes)
+                                  S_COMPILE3:       1 entries (          60 bytes)
+                                   S_BPREL32:       2 entries (          32 bytes)
+                                       S_END:       2 entries (           8 bytes)
+                                S_UNAMESPACE:       1 entries (           8 bytes)
+                                 S_BUILDINFO:       1 entries (           8 bytes)
+  
+    Chunks
+                                       Total:       3 entries (         216 bytes)
+    --------------------------------------------------------------------------
+                               DEBUG_S_LINES:       2 entries (         184 bytes)
+                          DEBUG_S_FILECHKSMS:       1 entries (          32 bytes)
+Mod 0002 | `* Linker *`: 
+  Stream 15, 1080 bytes
+  
+    Symbols
+                                       Total:      14 entries (       1,072 bytes)
+    --------------------------------------------------------------------------
+                                  S_ENVBLOCK:       1 entries (         708 bytes)
+                                 S_COFFGROUP:       6 entries (         172 bytes)
+                                   S_SECTION:       3 entries (          84 bytes)
+                                  S_COMPILE3:       1 entries (          48 bytes)
+                                S_TRAMPOLINE:       2 entries (          40 bytes)
+                                   S_OBJNAME:       1 entries (          20 bytes)
+  
+    Chunks
+                                       Total:       0 entries (           0 bytes)
+    --------------------------------------------------------------------------
+  Summary |
+    
+      Symbols
+                                         Total:      29 entries (       1,736 bytes)
+      --------------------------------------------------------------------------
+                                    S_ENVBLOCK:       2 entries (         888 bytes)
+                                     S_OBJNAME:       3 entries (         188 bytes)
+                                   S_COFFGROUP:       6 entries (         172 bytes)
+                                    S_COMPILE3:       3 entries (         156 bytes)
+                                     S_GPROC32:       2 entries (          88 bytes)
+                                     S_SECTION:       3 entries (          84 bytes)
+                                   S_FRAMEPROC:       2 entries (          64 bytes)
+                                  S_TRAMPOLINE:       2 entries (          40 bytes)
+                                     S_BPREL32:       2 entries (          32 bytes)
+                                         S_END:       2 entries (           8 bytes)
+                                  S_UNAMESPACE:       1 entries (           8 bytes)
+                                   S_BUILDINFO:       1 entries (           8 bytes)
+    
+      Chunks
+                                         Total:       4 entries (         248 bytes)
+      --------------------------------------------------------------------------
+                                 DEBUG_S_LINES:       2 entries (         184 bytes)
+                            DEBUG_S_FILECHKSMS:       2 entries (          64 bytes)
+
+
+                     S_UDT Record Stats                     
+============================================================
+    
+      Record Kind | Count  Size
+    ----------------------------
+    ----------------------------
+    Total (S_UDT) |     0     0
+    ----------------------------
+
+
+                        String Table                        
+============================================================
+   ID | String
+    2 | 'C:\Users\LOCALH~1\AppData\Local\Temp\lnk{F93BF4C4-43C8-488D-9646-ED6297A239E7}.tmp'
+   85 | 'C:\Users\localhost\Documents\GitHub\PdbGen\PdbTest\Main.cpp'
+  145 | '$T0 $ebp = $eip $T0 4 + ^ = $ebp $T0 ^ = $esp $T0 8 + = '
+  
+  String Table Header:
+    Signature: 4026462206
+    Hash Version: 1
+    Name Buffer Size: 202
+    
+  Name Buffer (
+    0000: 0000433A 5C557365 72735C4C 4F43414C 487E315C 41707044 6174615C 4C6F6361  |..C:\Users\LOCALH~1\AppData\Loca|
+    0020: 6C5C5465 6D705C6C 6E6B7B46 39334246 3443342D 34334338 2D343838 442D3936  |l\Temp\lnk{F93BF4C4-43C8-488D-96|
+    0040: 34362D45 44363239 37413233 3945377D 2E746D70 00433A5C 55736572 735C6C6F  |46-ED6297A239E7}.tmp.C:\Users\lo|
+    0060: 63616C68 6F73745C 446F6375 6D656E74 735C4769 74487562 5C506462 47656E5C  |calhost\Documents\GitHub\PdbGen\|
+    0080: 50646254 6573745C 4D61696E 2E637070 00245430 20246562 70203D20 24656970  |PdbTest\Main.cpp.$T0 $ebp = $eip|
+    00A0: 20245430 2034202B 205E203D 20246562 70202454 30205E20 3D202465 73702024  | $T0 4 + ^ = $ebp $T0 ^ = $esp $|
+    00C0: 54302038 202B203D 2000                                                   |T0 8 + = .|
+  )
+  
+  Hash Table:
+    Bucket Count: 7
+    Bucket[0] : 145
+    Bucket[1] : 1
+    Bucket[2] : 0
+    Bucket[3] : 2
+    Bucket[4] : 0
+    Bucket[5] : 0
+    Bucket[6] : 85
+    Name Count: 4
+
+
+                          Modules                           
+============================================================
+  Mod 0000 | `* Linker Generated Manifest RES *`: 
+  SC[???]  | mod = 65535, 65535:0000, size = -1, data crc = 0, reloc crc = 0
+          none
+  Obj: ``: 
+  debug stream: 11, # files: 1, has ec info: false
+  pdb file ni: 0 ``, src file ni: 0 ``
+Mod 0001 | `C:\Users\localhost\Documents\GitHub\PdbGen\PdbTest\Debug\Main.obj`: 
+SC[.text]  | mod = 1, 0001:0032, size = 107, data crc = 689958743, reloc crc = 0
+        IMAGE_SCN_CNT_CODE | IMAGE_SCN_ALIGN_16BYTES | IMAGE_SCN_MEM_EXECUTE | 
+        IMAGE_SCN_MEM_READ
+Obj: `C:\Users\localhost\Documents\GitHub\PdbGen\PdbTest\Debug\Main.obj`: 
+debug stream: 14, # files: 1, has ec info: false
+pdb file ni: 0 ``, src file ni: 0 ``
+Mod 0002 | `* Linker *`: 
+SC[.text]  | mod = 2, 0001:0000, size = 15, data crc = 0, reloc crc = 0
+        IMAGE_SCN_CNT_CODE | IMAGE_SCN_MEM_EXECUTE | IMAGE_SCN_MEM_READ
+Obj: ``: 
+debug stream: 15, # files: 0, has ec info: false
+pdb file ni: 1 `C:\Users\localhost\Documents\GitHub\PdbGen\PdbTest\Debug\PdbTest.pdb`, src file ni: 0 ``
+
+                           Files                            
+============================================================
+Mod 0000 | `* Linker Generated Manifest RES *`: 
+- (MD5: A353D12F29901935F17C812BAE451A23) C:\Users\LOCALH~1\AppData\Local\Temp\lnk{F93BF4C4-43C8-488D-9646-ED6297A239E7}.tmp
+Mod 0001 | `C:\Users\localhost\Documents\GitHub\PdbGen\PdbTest\Debug\Main.obj`: 
+- (MD5: 8F4BA0302458B9471A92F9A164E896C4) C:\Users\localhost\Documents\GitHub\PdbGen\PdbTest\Main.cpp
+Mod 0002 | `* Linker *`: 
+
+                           Lines                            
+============================================================
+Mod 0000 | `* Linker Generated Manifest RES *`: 
+Mod 0001 | `C:\Users\localhost\Documents\GitHub\PdbGen\PdbTest\Debug\Main.obj`: 
+C:\Users\localhost\Documents\GitHub\PdbGen\PdbTest\Main.cpp (MD5: 8F4BA0302458B9471A92F9A164E896C4)
+  0001:00000020-00000050, line/addr entries = 7
+     6 00000020      7 00000023      8 0000002C      9 00000033     10 0000003C     11 0000004B     12 0000004E   
+  
+  0001:00000050-0000008B, line/addr entries = 8
+    14 00000050     15 00000054     16 0000005B     17 00000064     18 0000006C     19 00000075     20 00000084     21 00000087   
+  
+Mod 0002 | `* Linker *`: 
+
+                       Inlinee Lines                        
+============================================================
+Mod 0000 | `* Linker Generated Manifest RES *`: 
+Mod 0001 | `C:\Users\localhost\Documents\GitHub\PdbGen\PdbTest\Debug\Main.obj`: 
+Mod 0002 | `* Linker *`: 
+
+                    Cross Module Imports                    
+============================================================
+Mod 0000 | `* Linker Generated Manifest RES *`: 
+Mod 0001 | `C:\Users\localhost\Documents\GitHub\PdbGen\PdbTest\Debug\Main.obj`: 
+Mod 0002 | `* Linker *`: 
+
+                    Cross Module Exports                    
+============================================================
+Mod 0000 | `* Linker Generated Manifest RES *`: 
+Mod 0001 | `C:\Users\localhost\Documents\GitHub\PdbGen\PdbTest\Debug\Main.obj`: 
+Mod 0002 | `* Linker *`: 
+
+                        Old FPO Data                        
+============================================================
+    FPO stream not present
+
+                        New FPO Data                        
+============================================================
+  RVA    | Code | Locals | Params | Stack | Prolog | Saved Regs | Has SEH | Has C++EH | Start | Program
+00001020 |   48 |      0 |      4 |     0 |      3 |          0 |   false |     false |  true | $T0 $ebp = $eip $T0 4 + ^ = $ebp $T0 ^ = $esp $T0 8 + = 
+00001050 |   59 |      4 |      0 |     0 |      4 |          0 |   false |     false |  true | $T0 $ebp = $eip $T0 4 + ^ = $ebp $T0 ^ = $esp $T0 8 + = 
+
+                     Types (TPI Stream)                     
+============================================================
+  Showing 4 records
+  0x1000 | LF_ARGLIST [size = 12, hash = 0x10ACA]
+           0x0074 (int): `int`
+  0x1001 | LF_PROCEDURE [size = 16, hash = 0x29A13]
+           return type = 0x0074 (int), # args = 1, param list = 0x1000
+           calling conv = cdecl, options = None
+  0x1002 | LF_ARGLIST [size = 8, hash = 0x32484]
+  0x1003 | LF_PROCEDURE [size = 16, hash = 0x3ACE6]
+           return type = 0x0074 (int), # args = 0, param list = 0x1002
+           calling conv = cdecl, options = None
+  
+  Header Version: 20040203
+  Hash Stream Index: 16
+  Aux Hash Stream Index: 65535
+  Hash Key Size: 4
+  Num Hash Buckets: 262143
+  Type Index Offsets:
+    TI: 0x1000, Offset: 0
+  
+  Hash Adjusters:
+
+                     Types (IPI Stream)                     
+============================================================
+  Showing 10 records
+  0x1000 | LF_STRING_ID [size = 60, hash = 0x3BC85] ID: <no type>, String: C:\Users\localhost\Documents\GitHub\PdbGen\PdbTest
+  0x1001 | LF_STRING_ID [size = 120, hash = 0x17784] ID: <no type>, String: C:\Program Files (x86)\Microsoft Visual Studio\2019\Community\VC\Tools\MSVC\14.23.28105\bin\HostX86\x86\CL.exe
+  0x1002 | LF_STRING_ID [size = 20, hash = 0x2616B] ID: <no type>, String: Main.cpp
+  0x1003 | LF_STRING_ID [size = 76, hash = 0xE65E] ID: <no type>, String: C:\Users\localhost\Documents\GitHub\PdbGen\PdbTest\Debug\vc142.pdb
+  0x1004 | LF_STRING_ID [size = 268, hash = 0x3E79A] ID: <no type>, String: -c -Zi -nologo -W3 -WX- -diagnostics:column -Od -D_MBCS -Gm- -MDd -GS- -Za -Zc:wchar_t- -Zc:forScope- -Zc:rvalueCast- -GR- -Gd -TP -analyze- -FC -Zl -errorreport:prompt -I"C:\Program Files (x86)\Microsoft Visual Studio\2019\Community\VC\Tools\MSVC\14.23.28105
+  0x1005 | LF_STRING_ID [size = 252, hash = 0x3A15B] ID: <no type>, String: \include" -I"C:\Program Files (x86)\Microsoft Visual Studio\2019\Community\VC\Tools\MSVC\14.23.28105\atlmfc\include" -I"C:\Program Files (x86)\Microsoft Visual Studio\2019\Community\VC\Auxiliary\VS\include" -I"C:\Program Files (x86)\Windows
+  0x1006 | LF_STRING_ID [size = 252, hash = 0x3FFBE] ID: <no type>, String:  Kits\10\Include\10.0.18362.0\ucrt" -I"C:\Program Files (x86)\Windows Kits\10\Include\10.0.18362.0\um" -I"C:\Program Files (x86)\Windows Kits\10\Include\10.0.18362.0\shared" -I"C:\Program Files (x86)\Windows Kits\10\Include\10.0.18362.0\winrt"
+  0x1007 | LF_SUBSTR_LIST [size = 20, hash = 0x2027D]
+           0x1004: `-c -Zi -nologo -W3 -WX- -diagnostics:column -Od -D_MBCS -Gm- -MDd -GS- -Za -Zc:wchar_t- -Zc:forScope- -Zc:rvalueCast- -GR- -Gd -TP -analyze- -FC -Zl -errorreport:prompt -I"C:\Program Files (x86)\Microsoft Visual Studio\2019\Community\VC\Tools\MSVC\14.23.28105`
+           0x1005: `\include" -I"C:\Program Files (x86)\Microsoft Visual Studio\2019\Community\VC\Tools\MSVC\14.23.28105\atlmfc\include" -I"C:\Program Files (x86)\Microsoft Visual Studio\2019\Community\VC\Auxiliary\VS\include" -I"C:\Program Files (x86)\Windows`
+           0x1006: ` Kits\10\Include\10.0.18362.0\ucrt" -I"C:\Program Files (x86)\Windows Kits\10\Include\10.0.18362.0\um" -I"C:\Program Files (x86)\Windows Kits\10\Include\10.0.18362.0\shared" -I"C:\Program Files (x86)\Windows Kits\10\Include\10.0.18362.0\winrt"`
+  0x1008 | LF_STRING_ID [size = 152, hash = 0x3745E] ID: 0x1007, String:  -I"C:\Program Files (x86)\Windows Kits\10\Include\10.0.18362.0\cppwinrt" -IC:\Users\localhost\Documents\GitHub\PdbGen\PdbTest\Include\um -X
+  0x1009 | LF_BUILDINFO [size = 28, hash = 0x1ABDB]
+           0x1000: `C:\Users\localhost\Documents\GitHub\PdbGen\PdbTest`
+           0x1001: `C:\Program Files (x86)\Microsoft Visual Studio\2019\Community\VC\Tools\MSVC\14.23.28105\bin\HostX86\x86\CL.exe`
+           0x1002: `Main.cpp`
+           0x1003: `C:\Users\localhost\Documents\GitHub\PdbGen\PdbTest\Debug\vc142.pdb`
+           0x1008: ` -I"C:\Program Files (x86)\Windows Kits\10\Include\10.0.18362.0\cppwinrt" -IC:\Users\localhost\Documents\GitHub\PdbGen\PdbTest\Include\um -X`
+  
+  Header Version: 20040203
+  Hash Stream Index: 17
+  Aux Hash Stream Index: 65535
+  Hash Key Size: 4
+  Num Hash Buckets: 262143
+  Type Index Offsets:
+    TI: 0x1000, Offset: 0
+  
+  Hash Adjusters:
+
+                       Global Symbols                       
+============================================================
+  Records
+      68 | S_PROCREF [size = 20] `main`
+           module = 2, sum name = 0, offset = 244
+      48 | S_PROCREF [size = 20] `foo`
+           module = 2, sum name = 0, offset = 148
+
+                       Public Symbols                       
+============================================================
+  Records
+       0 | S_PUB32 [size = 28] `?foo@@YAHH@Z`
+           flags = function, addr = 0001:0032
+      28 | S_PUB32 [size = 20] `_main`
+           flags = function, addr = 0001:0080
+
+                          Symbols                           
+============================================================
+  Mod 0000 | `* Linker Generated Manifest RES *`: 
+       4 | S_OBJNAME [size = 92] sig=0, `C:\Users\LOCALH~1\AppData\Local\Temp\lnk{3E3D1AD0-E368-4636-9BC6-EFF9317B86EF}.tmp`
+      96 | S_COMPILE3 [size = 48]
+           machine = intel 80386, Ver = Microsoft (R) CVTRES, language = cvtres
+           frontend = 0.0.0.0, backend = 14.23.28106.4
+           flags = no dbg info
+     144 | S_ENVBLOCK [size = 180]
+           - cwd
+           - C:\Users\localhost\Documents\GitHub\PdbGen\PdbTest
+           - exe
+           - C:\Program Files (x86)\Microsoft Visual Studio\2019\Community\VC\Tools\MSVC\14.23.28105\bin\HostX86\x86\cvtres.exe
+Mod 0001 | `C:\Users\localhost\Documents\GitHub\PdbGen\PdbTest\Debug\Main.obj`: 
+     4 | S_OBJNAME [size = 76] sig=0, `C:\Users\localhost\Documents\GitHub\PdbGen\PdbTest\Debug\Main.obj`
+    80 | S_COMPILE3 [size = 60]
+         machine = intel pentium 3, Ver = Microsoft (R) Optimizing Compiler, language = c++
+         frontend = 19.23.28106.4, backend = 19.23.28106.4
+         flags = none
+   140 | S_UNAMESPACE [size = 8] `std`
+   148 | S_GPROC32 [size = 44] `foo`
+         parent = 0, end = 240, addr = 0001:0032, code size = 48
+         type = `0x1001 (int (int))`, debug start = 3, debug end = 46, flags = has fp
+   192 | S_FRAMEPROC [size = 32]
+         size = 0, padding size = 0, offset to padding = 0
+         bytes of callee saved registers = 0, exception handler addr = 0000:0000
+         local fp reg = EBP, param fp reg = EBP
+         flags = has async eh | opt speed
+   224 | S_BPREL32 [size = 16] `bar`
+         type = 0x0074 (int), offset = 8
+   240 | S_END [size = 4]
+   244 | S_GPROC32 [size = 44] `main`
+         parent = 0, end = 336, addr = 0001:0080, code size = 59
+         type = `0x1003 (int ())`, debug start = 4, debug end = 55, flags = has fp
+   288 | S_FRAMEPROC [size = 32]
+         size = 4, padding size = 0, offset to padding = 0
+         bytes of callee saved registers = 0, exception handler addr = 0000:0000
+         local fp reg = EBP, param fp reg = EBP
+         flags = has async eh | opt speed
+   320 | S_BPREL32 [size = 16] `a`
+         type = 0x0074 (int), offset = -4
+   336 | S_END [size = 4]
+   340 | S_BUILDINFO [size = 8] BuildId = `0x1009`
+Mod 0002 | `* Linker *`: 
+     4 | S_OBJNAME [size = 20] sig=0, `* Linker *`
+    24 | S_COMPILE3 [size = 48]
+         machine = intel 80386, Ver = Microsoft (R) LINK, language = link
+         frontend = 0.0.0.0, backend = 14.23.28106.4
+         flags = none
+    72 | S_ENVBLOCK [size = 708]
+         - cwd
+         - C:\Users\localhost\Documents\GitHub\PdbGen\PdbTest
+         - exe
+         - C:\Program Files (x86)\Microsoft Visual Studio\2019\Community\VC\Tools\MSVC\14.23.28105\bin\HostX86\x86\link.exe
+         - pdb
+         - C:\Users\localhost\Documents\GitHub\PdbGen\PdbTest\Debug\PdbTest.pdb
+         - cmd
+         -  /ERRORREPORT:PROMPT /OUT:C:\Users\localhost\Documents\GitHub\PdbGen\PdbTest\Debug\PdbTest.exe /INCREMENTAL /NOLOGO /NODEFAULTLIB /MANIFEST "/MANIFESTUAC:level='asInvoker' uiAccess='false'" /manifest:embed /DEBUG:FULL /PDB:C:\Users\localhost\Documents\GitHub\PdbGen\PdbTest\Debug\PdbTest.pdb /SUBSYSTEM:CONSOLE /TLBID:1 /ENTRY:main /DYNAMICBASE:NO /NXCOMPAT:NO /IMPLIB:C:\Users\localhost\Documents\GitHub\PdbGen\PdbTest\Debug\PdbTest.lib /MACHINE:X86
+   780 | S_TRAMPOLINE [size = 20]
+         type = tramp incremental, size = 5, source = 0001:0005, target = 0001:0005
+   800 | S_TRAMPOLINE [size = 20]
+         type = tramp incremental, size = 5, source = 0001:0010, target = 0001:0010
+   820 | S_SECTION [size = 28] `.text`
+         length = 4269, alignment = 12, rva = 4096, section # = 1
+         characteristics =
+           code
+           execute permissions
+           read permissions
+   848 | S_COFFGROUP [size = 28] `.text$mn`
+         length = 4269, addr = 0001:0000
+         characteristics =
+           code
+           execute permissions
+           read permissions
+   876 | S_SECTION [size = 28] `.rdata`
+         length = 719, alignment = 12, rva = 12288, section # = 2
+         characteristics =
+           initialized data
+           read permissions
+   904 | S_COFFGROUP [size = 28] `.rdata`
+         length = 324, addr = 0002:0000
+         characteristics =
+           initialized data
+           read permissions
+   932 | S_COFFGROUP [size = 28] `.edata`
+         length = 0, addr = 0002:0323
+         characteristics =
+           initialized data
+           read permissions
+   960 | S_COFFGROUP [size = 32] `.rdata$zzzdbg`
+         length = 395, addr = 0002:0324
+         characteristics =
+           initialized data
+           read permissions
+   992 | S_SECTION [size = 28] `.rsrc`
+         length = 1084, alignment = 12, rva = 16384, section # = 3
+         characteristics =
+           initialized data
+           read permissions
+  1020 | S_COFFGROUP [size = 28] `.rsrc$01`
+         length = 368, addr = 0003:0000
+         characteristics =
+           initialized data
+           read permissions
+  1048 | S_COFFGROUP [size = 28] `.rsrc$02`
+         length = 716, addr = 0003:0368
+         characteristics =
+           initialized data
+           read permissions
+
+                      Section Headers                       
+============================================================
+  
+  SECTION HEADER #1
+     .text name
+      10AD virtual size
+      1000 virtual address
+      1200 size of raw data
+       400 file pointer to raw data
+         0 file pointer to relocation table
+         0 file pointer to line numbers
+         0 number of relocations
+         0 number of line numbers
+  60000020 flags
+           IMAGE_SCN_CNT_CODE
+           IMAGE_SCN_MEM_EXECUTE
+           IMAGE_SCN_MEM_READ
+  
+  SECTION HEADER #2
+    .rdata name
+       2CF virtual size
+      3000 virtual address
+       400 size of raw data
+      1600 file pointer to raw data
+         0 file pointer to relocation table
+         0 file pointer to line numbers
+         0 number of relocations
+         0 number of line numbers
+  40000040 flags
+           IMAGE_SCN_CNT_INITIALIZED_DATA
+           IMAGE_SCN_MEM_READ
+  
+  SECTION HEADER #3
+     .rsrc name
+       43C virtual size
+      4000 virtual address
+       600 size of raw data
+      1A00 file pointer to raw data
+         0 file pointer to relocation table
+         0 file pointer to line numbers
+         0 number of relocations
+         0 number of line numbers
+  40000040 flags
+           IMAGE_SCN_CNT_INITIALIZED_DATA
+           IMAGE_SCN_MEM_READ
+
+                  Original Section Headers                  
+============================================================
+  PDB does not contain the requested image section header type
+
+                   Section Contributions                    
+============================================================
+  SC[.text]   | mod = 2, 0001:0000, size = 15, data crc = 0, reloc crc = 0
+                IMAGE_SCN_CNT_CODE | IMAGE_SCN_MEM_EXECUTE | IMAGE_SCN_MEM_READ
+  SC[.text]   | mod = 1, 0001:0032, size = 107, data crc = 689958743, reloc crc = 0
+                IMAGE_SCN_CNT_CODE | IMAGE_SCN_ALIGN_16BYTES | IMAGE_SCN_MEM_EXECUTE | 
+                IMAGE_SCN_MEM_READ
+  SC[.rdata]  | mod = 2, 0002:0000, size = 56, data crc = 0, reloc crc = 0
+                IMAGE_SCN_CNT_INITIALIZED_DATA | IMAGE_SCN_MEM_READ
+  SC[.rdata]  | mod = 2, 0002:0324, size = 93, data crc = 0, reloc crc = 0
+                IMAGE_SCN_CNT_INITIALIZED_DATA | IMAGE_SCN_ALIGN_4BYTES | IMAGE_SCN_MEM_READ
+  SC[.rdata]  | mod = 2, 0002:0420, size = 20, data crc = 0, reloc crc = 0
+                IMAGE_SCN_CNT_INITIALIZED_DATA | IMAGE_SCN_ALIGN_4BYTES | IMAGE_SCN_MEM_READ
+  SC[.rsrc]   | mod = 0, 0003:0000, size = 88, data crc = 0, reloc crc = 0
+                IMAGE_SCN_CNT_INITIALIZED_DATA | IMAGE_SCN_MEM_READ
+  SC[.rsrc]   | mod = 0, 0003:0368, size = 384, data crc = 0, reloc crc = 0
+                IMAGE_SCN_CNT_INITIALIZED_DATA | IMAGE_SCN_MEM_READ
+
+                        Section Map                         
+============================================================
+  Section 0000 | ovl = 0, group = 0, frame = 1, name = 65535
+                 class = 65535, offset = 0, size = 4269
+                 flags = read | execute | 32 bit addr | selector
+  Section 0001 | ovl = 0, group = 0, frame = 2, name = 65535
+                 class = 65535, offset = 0, size = 719
+                 flags = read | 32 bit addr | selector
+  Section 0002 | ovl = 0, group = 0, frame = 3, name = 65535
+                 class = 65535, offset = 0, size = 1084
+                 flags = read | 32 bit addr | selector
+  Section 0003 | ovl = 0, group = 0, frame = 0, name = 65535
+                 class = 65535, offset = 0, size = 4294967295
+                 flags = 32 bit addr | absolute addr
