@@ -23,6 +23,7 @@
 
 #include <cstdlib>
 
+#include "Main.h"
 #include "MD5.h"
 
 using namespace std;
@@ -45,25 +46,6 @@ struct ModuleInfo
     uint32_t age{};
     uint32_t signature{};
 };
-
-struct Local {
-    int32_t offset; // Offset from EBP (I think)
-    TypeIndex type;
-    std::string name;
-};
-
-struct Function {
-    std::vector<std::tuple<int, int>> lines;
-    std::vector<TypeIndex> arguments;
-    std::vector<Local> locals;
-    TypeIndex returnType;
-    uint16_t segment;
-    uint32_t offset;
-    uint32_t length; // Total instruction count, including ret
-
-    std::string properName;
-    std::string nickName;
-} fooFunction, mainFunction;
 
 ModuleInfo ReadModuleInfo(const string& modulePath)
 {
@@ -100,7 +82,7 @@ ModuleInfo ReadModuleInfo(const string& modulePath)
     return info;
 }
 
-// Returns {Section index, offset}
+// Returns {Segment index, offset}
 // Adapted from https://github.com/Mixaill/FakePDB/blob/master/src_pdbgen/pefile.cpp
 std::tuple<uint16_t, uint32_t> ConvertRVA(uint64_t rva) {
     OwningBinary<Binary> binary = ExitOnErr(createBinary("C:/Users/localhost/Documents/GitHub/PdbGen/PdbTest/Debug/PdbTest.exe"));
@@ -122,69 +104,57 @@ std::tuple<uint16_t, uint32_t> ConvertRVA(uint64_t rva) {
     return {0, 0};
 }
 
-// TODO: in64_t? How else do we work with 64 bit processes?
-PublicSym32 CreatePublicSymbol(const char* name, int32_t offset) {
-    using namespace llvm::codeview;
-    PublicSym32 symbol(SymbolRecordKind::PublicSym32);
-    symbol.Flags = PublicSymFlags::Function;
-    symbol.Offset = offset;
-    symbol.Segment = 1;
-    symbol.Name = name;
-    return symbol;
-}
-
 template <typename SymType>
-CVSymbol AddSymbol(llvm::pdb::DbiModuleDescriptorBuilder& module, SymType& sym) {
-    CVSymbol cvSym = SymbolSerializer::writeOneSymbol(sym, llvmAllocator, CodeViewContainer::Pdb);
-    module.addSymbol(cvSym);
-    return cvSym;
+CVSymbol CreateSymbol(SymType& sym) {
+    return SymbolSerializer::writeOneSymbol(sym, llvmAllocator, CodeViewContainer::Pdb);
 }
 
-void FuckYou(llvm::pdb::DbiModuleDescriptorBuilder& module) {
-    auto sym1 = ProcSym(SymbolRecordKind::GlobalProcSym);
-    sym1.Parent = 0;
-    sym1.End = module.getNextSymbolOffset() - 4; //  + 60; // 104
-    sym1.Next = 0;
-    sym1.CodeSize = fooFunction.length;
-    sym1.FunctionType = TypeIndex(0x1001);
-    sym1.CodeOffset = fooFunction.offset;
-    sym1.Segment = fooFunction.segment;
-    sym1.Flags = ProcSymFlags::HasFP;
-    sym1.Name = fooFunction.nickName;
-    CVSymbol cvSym1 = SymbolSerializer::writeOneSymbol(sym1, llvmAllocator, CodeViewContainer::Pdb);
+void Main::AddFunction(const Function& function) {
 
-    CVSymbol cvSym2;
-    for (const Local& local : fooFunction.locals) {
-        auto sym2 = BPRelativeSym(SymbolRecordKind::BPRelativeSym);
-        sym2.Offset = local.offset;
-        sym2.Type = local.type;
-        sym2.Name = local.name;
-        cvSym2 = SymbolSerializer::writeOneSymbol(sym2, llvmAllocator, CodeViewContainer::Pdb);
+
+
+
+
+
+
+
+    std::vector<CVSymbol> symbols;
+
+    auto procSym = ProcSym(SymbolRecordKind::GlobalProcSym);
+    // procSym.Parent = 0;
+    procSym.End = _module->getNextSymbolOffset() - 4; // Offset of the symbol before this one
+    // procSym.Next = 0;
+    procSym.CodeSize = function.length;
+    procSym.CodeOffset = function.offset;
+    procSym.Segment = function.segment;
+    procSym.Flags = ProcSymFlags::HasFP;
+    procSym.Name = function.nickName;
+    symbols.emplace_back(CreateSymbol(procSym));
+
+    for (const Local& local : function.locals) {
+        auto sym = BPRelativeSym(SymbolRecordKind::BPRelativeSym);
+        sym.Offset = local.offset;
+        sym.Type = local.type;
+        sym.Name = local.name;
+        symbols.emplace_back(CreateSymbol(sym));
     }
-    auto sym3 = ScopeEndSym(SymbolRecordKind::ScopeEndSym);
-    CVSymbol cvSym3 = SymbolSerializer::writeOneSymbol(sym3, llvmAllocator, CodeViewContainer::Pdb);
+    {
+        auto sym = ScopeEndSym(SymbolRecordKind::ScopeEndSym);
+        symbols.emplace_back(CreateSymbol(sym));
+    }
 
-    sym1.End += cvSym1.data().size();
-    sym1.End += cvSym2.data().size();
-    sym1.End += cvSym3.data().size();
-    cvSym1 = SymbolSerializer::writeOneSymbol(sym1, llvmAllocator, CodeViewContainer::Pdb);
-
-    module.addSymbol(cvSym1);
-    module.addSymbol(cvSym2);
-    module.addSymbol(cvSym3);
-
+    // Update procSym.End to point to the symbol offset of the ScopeEndSym.
+    for (const auto symbol : symbols) procSym.End += symbol.data().size();
+    symbols[0] = CreateSymbol(procSym);
+    for (const auto symbol : symbols) _module->addSymbol(symbol);
 }
 
-
-void GeneratePDB(char const* outputFileName) {
+void Main::GeneratePDB(char const* outputFileName) {
     ModuleInfo moduleInfo = ReadModuleInfo("C:/Users/localhost/Documents/GitHub/PdbGen/PdbTest/Debug/PdbTest.exe");
     // Name doesn't actually matter, since there is no real object file.
     const char* moduleName = "D:/dummy.obj";
     // This one might matter. Unsure.
     const char* filename = R"(C:\Users\localhost\Documents\GitHub\PdbGen\Generated\Main.cpp)";
-    // I really hope this one doesn't matter.
-    const char* tmpFilename = R"(C:\Users\LOCALH~1\AppData\Local\Temp\lnk{CD77352F-E54C-4392-A458-0DE42662F1A3}.tmp)";
-
 
     PDBFileBuilder* builder = new PDBFileBuilder(llvmAllocator);
     ExitOnErr(builder->initialize(4096)); // Blocksize
@@ -215,132 +185,107 @@ void GeneratePDB(char const* outputFileName) {
 
     dbiBuilder.setVersionHeader(PdbDbiV70);
     dbiBuilder.setPublicsStreamIndex(gsiBuilder.getPublicsStreamIndex());
-    ExitOnErr(dbiBuilder.addModuleInfo("* Linker Generated Manifest RES *"));
     
     tpiBuilder.setVersionHeader(PdbTpiV80);
+    ipiBuilder.setVersionHeader(PdbTpiV80);
 
-    { // Module: Main.obj
-        DbiModuleDescriptorBuilder& module = ExitOnErr(dbiBuilder.addModuleInfo(moduleName));
-        module.setObjFileName(moduleName);
-        ExitOnErr(dbiBuilder.addModuleSourceFile(module, filename));
+    _module = &ExitOnErr(dbiBuilder.addModuleInfo(moduleName));
+    _module->setObjFileName(moduleName);
+    ExitOnErr(dbiBuilder.addModuleSourceFile(*_module, filename));
 
-        auto checksums = make_shared<DebugChecksumsSubsection>(*strings);
-        checksums->addChecksum(filename, FileChecksumKind::MD5, ::MD5::HashFile(filename));
-        module.addDebugSubsection(checksums);
-
-        { // foo
-            auto debugSubsection = make_shared<DebugLinesSubsection>(*checksums, *strings);
-            debugSubsection->createBlock(filename);
-            debugSubsection->setCodeSize(fooFunction.length);
-            debugSubsection->setRelocationAddress(fooFunction.segment, fooFunction.offset);
-            for (const auto& [offset, line] : fooFunction.lines) {
-                debugSubsection->addLineInfo(offset, LineInfo(line, line, true)); // Offset, Start, End, isStatement
-            }
-            module.addDebugSubsection(debugSubsection);
-        }
-
-        { // main
-            auto debugSubsection = make_shared<DebugLinesSubsection>(*checksums, *strings);
-            debugSubsection->createBlock(filename);
-            debugSubsection->setCodeSize(mainFunction.length);
-            debugSubsection->setRelocationAddress(mainFunction.segment, mainFunction.offset);
-            for (const auto& [offset, line] : mainFunction.lines) {
-                debugSubsection->addLineInfo(offset, LineInfo(line, line, true)); // Offset, Start, End, isStatement
-            }
-            module.addDebugSubsection(debugSubsection);
-        }
-
-        {
-            // The backend version must be a valid MSVC version. See LLD documentation:
-            // https://github.com/llvm-mirror/lld/blob/master/COFF/PDB.cpp#L1395
-            auto sym = Compile3Sym();
-            sym.VersionBackendMajor = 14;
-            sym.VersionBackendMinor = 10;
-            sym.VersionBackendBuild = 25019;
-            sym.VersionBackendQFE = 0;
-            sym.Version = "AutoPDB v0.1";
-            sym.setLanguage(SourceLanguage::Cpp);
-            AddSymbol(module, sym);
-        }
-        FuckYou(module);
-        {
-            auto sym = ProcSym(SymbolRecordKind::GlobalProcSym);
-            sym.Parent = 0;
-            sym.End = module.getNextSymbolOffset() + 92; // 336
-            sym.Next = 0;
-            sym.CodeSize = mainFunction.length;
-            sym.FunctionType = TypeIndex(0x1003); 
-            sym.CodeOffset = mainFunction.offset;
-            sym.Segment = mainFunction.segment;
-            sym.Flags = ProcSymFlags::HasFP;
-            sym.Name = mainFunction.nickName;
-            AddSymbol(module, sym);
-        }
-        {
-            auto sym = FrameProcSym(SymbolRecordKind::FrameProcSym);
-            sym.TotalFrameBytes = 4;
-            sym.PaddingFrameBytes = 0;
-            sym.OffsetToPadding = 0;
-            sym.BytesOfCalleeSavedRegisters = 0;
-            sym.OffsetOfExceptionHandler = 0;
-            sym.SectionIdOfExceptionHandler = 0;
-            sym.Flags = FrameProcedureOptions::AsynchronousExceptionHandling | FrameProcedureOptions::OptimizedForSpeed;
-            AddSymbol(module, sym);
-        }
-        for (const Local& local : mainFunction.locals) {
-            auto sym = BPRelativeSym(SymbolRecordKind::BPRelativeSym);
-            sym.Offset = local.offset;
-            sym.Type = local.type;
-            sym.Name = local.name;
-            AddSymbol(module, sym);
-        }
-        {
-            auto sym = ScopeEndSym(SymbolRecordKind::ScopeEndSym);
-            AddSymbol(module, sym);
-        }
-    }
-    { // Module: Linker
-        DbiModuleDescriptorBuilder& module = ExitOnErr(dbiBuilder.addModuleInfo("* Linker *"));
-
-        // The "thunk" is a jump redirect to a function. This "5" refers to 0x401005 -- 5 instructions off of the base.
-
-        { // Foo thunk
-            TrampolineSym sym(SymbolRecordKind::TrampolineSym);
-            sym.Type = TrampolineType::TrampIncremental;
-            sym.Size = 5; // Total number of opcodes in this symbol
-            sym.ThunkOffset = 5; 
-            sym.ThunkSection = 1;
-            sym.TargetOffset = fooFunction.offset;
-            sym.TargetSection = fooFunction.segment;
-            AddSymbol(module, sym);
-        }
-        { // Main thunk
-            TrampolineSym sym(SymbolRecordKind::TrampolineSym);
-            sym.Type = TrampolineType::TrampIncremental;
-            sym.Size = 5;
-            sym.ThunkOffset = 10;
-            sym.ThunkSection = 1;
-            sym.TargetOffset = mainFunction.offset;
-            sym.TargetSection = mainFunction.segment;
-            AddSymbol(module, sym);
-        }
-    }
+    auto checksums = make_shared<DebugChecksumsSubsection>(*strings);
+    checksums->addChecksum(filename, FileChecksumKind::MD5, ::MD5::HashFile(filename));
+    _module->addDebugSubsection(checksums);
 
     {
+        // The backend version must be a valid MSVC version. See LLD documentation:
+        // https://github.com/llvm-mirror/lld/blob/master/COFF/PDB.cpp#L1395
+        auto sym = Compile3Sym();
+        sym.VersionBackendMajor = 14;
+        sym.VersionBackendMinor = 10;
+        sym.VersionBackendBuild = 25019;
+        sym.VersionBackendQFE = 0;
+        sym.Version = "AutoPDB v0.1";
+        sym.setLanguage(SourceLanguage::Cpp);
+        _module->addSymbol(CreateSymbol(sym));
+    }
+
+    { // foo
+        auto debugSubsection = make_shared<DebugLinesSubsection>(*checksums, *strings);
+        debugSubsection->createBlock(filename);
+        debugSubsection->setCodeSize(fooFunction.length);
+        debugSubsection->setRelocationAddress(fooFunction.segment, fooFunction.offset);
+        for (const auto& [offset, line] : fooFunction.lines) {
+            debugSubsection->addLineInfo(offset, LineInfo(line, line, true)); // Offset, Start, End, isStatement
+        }
+        _module->addDebugSubsection(debugSubsection);
+    }
+
+    { // main
+        auto debugSubsection = make_shared<DebugLinesSubsection>(*checksums, *strings);
+        debugSubsection->createBlock(filename);
+        debugSubsection->setCodeSize(mainFunction.length);
+        debugSubsection->setRelocationAddress(mainFunction.segment, mainFunction.offset);
+        for (const auto& [offset, line] : mainFunction.lines) {
+            debugSubsection->addLineInfo(offset, LineInfo(line, line, true)); // Offset, Start, End, isStatement
+        }
+        _module->addDebugSubsection(debugSubsection);
+    }
+
+    AddFunction(fooFunction);
+    AddFunction(mainFunction);
+
+    { // Foo thunk
+        TrampolineSym sym(SymbolRecordKind::TrampolineSym);
+        sym.Type = TrampolineType::TrampIncremental;
+        sym.Size = fooFunction.thunkLength;
+        sym.ThunkOffset = fooFunction.thunkOffset; 
+        sym.ThunkSection = fooFunction.thunkSegment;
+        sym.TargetOffset = fooFunction.offset;
+        sym.TargetSection = fooFunction.segment;
+        _module->addSymbol(CreateSymbol(sym));
+
         SectionContrib sc{};
-        sc.Imod = 2;
-        sc.ISect = 1;
-        sc.Off = 0;
-        sc.Size = 15;
+        sc.Imod = 0;
+        sc.ISect = fooFunction.thunkSegment;
+        sc.Off = fooFunction.thunkOffset;
+        sc.Size = fooFunction.thunkLength;
+        sc.Characteristics = IMAGE_SCN_CNT_CODE | IMAGE_SCN_MEM_EXECUTE | IMAGE_SCN_MEM_READ;
+        dbiBuilder.addSectionContrib(sc);
+    }
+    { // Main thunk
+        TrampolineSym sym(SymbolRecordKind::TrampolineSym);
+        sym.Type = TrampolineType::TrampIncremental;
+        sym.Size = mainFunction.thunkLength;
+        sym.ThunkOffset = mainFunction.thunkOffset; 
+        sym.ThunkSection = mainFunction.thunkSegment;
+        sym.TargetOffset = mainFunction.offset;
+        sym.TargetSection = mainFunction.segment;
+        _module->addSymbol(CreateSymbol(sym));
+
+        SectionContrib sc{};
+        sc.Imod = 0;
+        sc.ISect = mainFunction.thunkSegment;
+        sc.Off = mainFunction.thunkOffset;
+        sc.Size = mainFunction.thunkLength;
         sc.Characteristics = IMAGE_SCN_CNT_CODE | IMAGE_SCN_MEM_EXECUTE | IMAGE_SCN_MEM_READ;
         dbiBuilder.addSectionContrib(sc);
     }
     {
         SectionContrib sc{};
-        sc.Imod = 1;
-        sc.ISect = 1;
-        sc.Off = 32;
-        sc.Size = 123;
+        sc.Imod = 0;
+        sc.ISect = fooFunction.segment;
+        sc.Off = fooFunction.offset;
+        sc.Size = fooFunction.length;
+        sc.Characteristics = IMAGE_SCN_CNT_CODE | IMAGE_SCN_ALIGN_16BYTES | IMAGE_SCN_MEM_EXECUTE | IMAGE_SCN_MEM_READ;
+        dbiBuilder.addSectionContrib(sc);
+    }
+    {
+        SectionContrib sc{};
+        sc.Imod = 0;
+        sc.ISect = mainFunction.segment;
+        sc.Off = mainFunction.offset;
+        sc.Size = mainFunction.length;
         sc.Characteristics = IMAGE_SCN_CNT_CODE | IMAGE_SCN_ALIGN_16BYTES | IMAGE_SCN_MEM_EXECUTE | IMAGE_SCN_MEM_READ;
         dbiBuilder.addSectionContrib(sc);
     }
@@ -354,14 +299,6 @@ void GeneratePDB(char const* outputFileName) {
         gsiBuilder.addPublicSymbol(sym);
     }
     {
-        ProcRefSym sym(SymbolRecordKind::ProcRefSym);
-        sym.Module = 2;
-        sym.Name = fooFunction.nickName;
-        sym.SymOffset = 148;
-        sym.SumName = 0;
-        gsiBuilder.addGlobalSymbol(sym);
-    }
-    {
         PublicSym32 sym(SymbolRecordKind::PublicSym32);
         sym.Flags = PublicSymFlags::Function;
         sym.Offset = mainFunction.offset;
@@ -369,53 +306,41 @@ void GeneratePDB(char const* outputFileName) {
         sym.Name = mainFunction.properName;
         gsiBuilder.addPublicSymbol(sym);
     }
-    {
-        ProcRefSym sym(SymbolRecordKind::ProcRefSym);
-        sym.Module = 2;
-        sym.Name = mainFunction.nickName;
-        sym.SymOffset = 244;
-        sym.SumName = 0;
-        gsiBuilder.addGlobalSymbol(sym);
-    }
 
     {
+        ProcedureRecord procedure(TypeRecordKind::Procedure);
+        procedure.ReturnType = fooFunction.returnType;
+        procedure.CallConv = CallingConvention::NearC;
+        procedure.Options = FunctionOptions::None;
+        assert(fooFunction.arguments.size() <= 0xFFFF);
+        procedure.ParameterCount = static_cast<uint16_t>(fooFunction.arguments.size());
         {
-            ProcedureRecord procedure(TypeRecordKind::Procedure);
-            procedure.ReturnType = fooFunction.returnType;
-            procedure.CallConv = CallingConvention::NearC;
-            procedure.Options = FunctionOptions::None;
-            assert(fooFunction.arguments.size() <= 0xFFFF);
-            procedure.ParameterCount = static_cast<uint16_t>(fooFunction.arguments.size());
-            {
-                ArgListRecord argList(TypeRecordKind::ArgList);
-                argList.ArgIndices = fooFunction.arguments;
-                procedure.ArgumentList = typeBuilder->writeLeafType(argList);
-                CVType cvt = typeBuilder->getType(procedure.ArgumentList);
-                tpiBuilder.addTypeRecord(cvt.RecordData, ExitOnErr(hashTypeRecord(cvt)));
-            }
-            CVType cvt = typeBuilder->getType(typeBuilder->writeLeafType(procedure));
+            ArgListRecord argList(TypeRecordKind::ArgList);
+            argList.ArgIndices = fooFunction.arguments;
+            procedure.ArgumentList = typeBuilder->writeLeafType(argList);
+            CVType cvt = typeBuilder->getType(procedure.ArgumentList);
             tpiBuilder.addTypeRecord(cvt.RecordData, ExitOnErr(hashTypeRecord(cvt)));
         }
-        {
-            ProcedureRecord procedure(TypeRecordKind::Procedure);
-            procedure.ReturnType = mainFunction.returnType;
-            procedure.CallConv = CallingConvention::NearC;
-            procedure.Options = FunctionOptions::None;
-            assert(mainFunction.arguments.size() <= 0xFFFF);
-            procedure.ParameterCount = static_cast<uint16_t>(mainFunction.arguments.size());
-            {
-                ArgListRecord argList(TypeRecordKind::ArgList);
-                argList.ArgIndices = mainFunction.arguments;
-                procedure.ArgumentList = typeBuilder->writeLeafType(argList);
-                CVType cvt = typeBuilder->getType(procedure.ArgumentList);
-                tpiBuilder.addTypeRecord(cvt.RecordData, ExitOnErr(hashTypeRecord(cvt)));
-            }
-            CVType cvt = typeBuilder->getType(typeBuilder->writeLeafType(procedure));
-            tpiBuilder.addTypeRecord(cvt.RecordData, ExitOnErr(hashTypeRecord(cvt)));
-        }
+        CVType cvt = typeBuilder->getType(typeBuilder->writeLeafType(procedure));
+        tpiBuilder.addTypeRecord(cvt.RecordData, ExitOnErr(hashTypeRecord(cvt)));
     }
-
-    ipiBuilder.setVersionHeader(PdbTpiV80);
+    {
+        ProcedureRecord procedure(TypeRecordKind::Procedure);
+        procedure.ReturnType = mainFunction.returnType;
+        procedure.CallConv = CallingConvention::NearC;
+        procedure.Options = FunctionOptions::None;
+        assert(mainFunction.arguments.size() <= 0xFFFF);
+        procedure.ParameterCount = static_cast<uint16_t>(mainFunction.arguments.size());
+        {
+            ArgListRecord argList(TypeRecordKind::ArgList);
+            argList.ArgIndices = mainFunction.arguments;
+            procedure.ArgumentList = typeBuilder->writeLeafType(argList);
+            CVType cvt = typeBuilder->getType(procedure.ArgumentList);
+            tpiBuilder.addTypeRecord(cvt.RecordData, ExitOnErr(hashTypeRecord(cvt)));
+        }
+        CVType cvt = typeBuilder->getType(typeBuilder->writeLeafType(procedure));
+        tpiBuilder.addTypeRecord(cvt.RecordData, ExitOnErr(hashTypeRecord(cvt)));
+    }
 
     GUID ignoredOutGuid;
     // Also commits all other stream builders.
@@ -424,8 +349,8 @@ void GeneratePDB(char const* outputFileName) {
 
 int main(int argc, char** argv) {
     {
-        auto [section, offset] = ConvertRVA(0x401020);
-        fooFunction.segment = section;
+        auto [segment, offset] = ConvertRVA(0x401020);
+        fooFunction.segment = segment;
         fooFunction.offset = offset;
     }
     fooFunction.length = 48;
@@ -447,6 +372,12 @@ int main(int argc, char** argv) {
         TypeIndex(SimpleTypeKind::Int32),
         "bar"
     });
+    {
+        auto [segment, offset] = ConvertRVA(0x401005);
+        fooFunction.thunkSegment = segment;
+        fooFunction.thunkOffset = offset;
+    }
+    fooFunction.thunkLength = 5;
 
     {
         auto [section, offset] = ConvertRVA(0x401050);
@@ -474,6 +405,13 @@ int main(int argc, char** argv) {
         TypeIndex(SimpleTypeKind::Int32),
         "a"
     });
+    {
+        auto [segment, offset] = ConvertRVA(0x40100A);
+        mainFunction.thunkSegment = segment;
+        mainFunction.thunkOffset = offset;
+    }
+    mainFunction.thunkLength = 5;
 
-    GeneratePDB("../Generated/PdbTest.pdb");
+    Main main;
+    main.GeneratePDB("../Generated/PdbTest.pdb");
 }
