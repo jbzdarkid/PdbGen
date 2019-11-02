@@ -36,7 +36,6 @@ using namespace llvm::object;
 // I hate globals.
 llvm::BumpPtrAllocator llvmAllocator;
 llvm::ExitOnError ExitOnErr;
-const COFFObjectFile* obj;
 
 struct ModuleInfo
 {
@@ -46,6 +45,25 @@ struct ModuleInfo
     uint32_t age{};
     uint32_t signature{};
 };
+
+struct Local {
+    int32_t offset; // Offset from EBP (I think)
+    TypeIndex type;
+    std::string name;
+};
+
+struct Function {
+    std::vector<std::tuple<int, int>> lines;
+    std::vector<TypeIndex> arguments;
+    std::vector<Local> locals;
+    TypeIndex returnType;
+    uint16_t segment;
+    uint32_t offset;
+    uint32_t length; // Total instruction count, including ret
+
+    std::string properName;
+    std::string nickName;
+} fooFunction, mainFunction;
 
 ModuleInfo ReadModuleInfo(const string& modulePath)
 {
@@ -57,7 +75,7 @@ ModuleInfo ReadModuleInfo(const string& modulePath)
         ExitOnErr(errorCodeToError(make_error_code(errc::not_supported)));
     }
 
-    obj = llvm::cast<COFFObjectFile>(binary.getBinary());
+    const COFFObjectFile* obj = llvm::cast<COFFObjectFile>(binary.getBinary());
     for (const auto& sectionRef : obj->sections())
         info.sections.push_back(*obj->getCOFFSection(sectionRef));
 
@@ -82,18 +100,18 @@ ModuleInfo ReadModuleInfo(const string& modulePath)
     return info;
 }
 
-
 // Returns {Section index, offset}
 // Adapted from https://github.com/Mixaill/FakePDB/blob/master/src_pdbgen/pefile.cpp
-std::tuple<uint16_t, uint32_t> ConvertRVA(uint32_t rva) {
+std::tuple<uint16_t, uint32_t> ConvertRVA(uint64_t rva) {
+    OwningBinary<Binary> binary = ExitOnErr(createBinary("C:/Users/localhost/Documents/GitHub/PdbGen/PdbTest/Debug/PdbTest.exe"));
+    assert(binary.getBinary()->isCOFF());
+    const COFFObjectFile* obj = llvm::cast<COFFObjectFile>(binary.getBinary());
+
     rva -= obj->getImageBase();
 
     uint16_t index = 1;
     for (const SectionRef& sectionRef : obj->sections()) {
         const coff_section* section = obj->getCOFFSection(sectionRef);
-        int a = sectionRef.getIndex();
-        int b = sectionRef.getAddress();
-        int c = sectionRef.getSize();
         uint32_t s_va = section->VirtualAddress;
         if (s_va <= rva && rva <= s_va + section->VirtualSize) {
             return {index, rva - s_va};
@@ -116,23 +134,52 @@ PublicSym32 CreatePublicSymbol(const char* name, int32_t offset) {
 }
 
 template <typename SymType>
-void AddSymbol(llvm::pdb::DbiModuleDescriptorBuilder& modiBuilder, SymType& sym) {
+CVSymbol AddSymbol(llvm::pdb::DbiModuleDescriptorBuilder& module, SymType& sym) {
     CVSymbol cvSym = SymbolSerializer::writeOneSymbol(sym, llvmAllocator, CodeViewContainer::Pdb);
-    modiBuilder.addSymbol(cvSym);
+    module.addSymbol(cvSym);
+    return cvSym;
 }
 
-struct MainFunction {
-    std::vector<std::tuple<int, int>> lines;
-} mainFunction;
+void FuckYou(llvm::pdb::DbiModuleDescriptorBuilder& module) {
+    auto sym1 = ProcSym(SymbolRecordKind::GlobalProcSym);
+    sym1.Parent = 0;
+    sym1.End = module.getNextSymbolOffset() - 4; //  + 60; // 104
+    sym1.Next = 0;
+    sym1.CodeSize = fooFunction.length;
+    sym1.FunctionType = TypeIndex(0x1001);
+    sym1.CodeOffset = fooFunction.offset;
+    sym1.Segment = fooFunction.segment;
+    sym1.Flags = ProcSymFlags::HasFP;
+    sym1.Name = fooFunction.nickName;
+    CVSymbol cvSym1 = SymbolSerializer::writeOneSymbol(sym1, llvmAllocator, CodeViewContainer::Pdb);
 
-struct FooFunction {
-    std::vector<std::tuple<int, int>> lines;
-} fooFunction;
+    CVSymbol cvSym2;
+    for (const Local& local : fooFunction.locals) {
+        auto sym2 = BPRelativeSym(SymbolRecordKind::BPRelativeSym);
+        sym2.Offset = local.offset;
+        sym2.Type = local.type;
+        sym2.Name = local.name;
+        cvSym2 = SymbolSerializer::writeOneSymbol(sym2, llvmAllocator, CodeViewContainer::Pdb);
+    }
+    auto sym3 = ScopeEndSym(SymbolRecordKind::ScopeEndSym);
+    CVSymbol cvSym3 = SymbolSerializer::writeOneSymbol(sym3, llvmAllocator, CodeViewContainer::Pdb);
+
+    sym1.End += cvSym1.data().size();
+    sym1.End += cvSym2.data().size();
+    sym1.End += cvSym3.data().size();
+    cvSym1 = SymbolSerializer::writeOneSymbol(sym1, llvmAllocator, CodeViewContainer::Pdb);
+
+    module.addSymbol(cvSym1);
+    module.addSymbol(cvSym2);
+    module.addSymbol(cvSym3);
+
+}
+
 
 void GeneratePDB(char const* outputFileName) {
     ModuleInfo moduleInfo = ReadModuleInfo("C:/Users/localhost/Documents/GitHub/PdbGen/PdbTest/Debug/PdbTest.exe");
     // Name doesn't actually matter, since there is no real object file.
-    const char* moduleName = R"(C:\Users\localhost\Documents\GitHub\PdbGen\PdbTest\Debug\Main.obj)";
+    const char* moduleName = "D:/dummy.obj";
     // This one might matter. Unsure.
     const char* filename = R"(C:\Users\localhost\Documents\GitHub\PdbGen\Generated\Main.cpp)";
     // I really hope this one doesn't matter.
@@ -184,9 +231,8 @@ void GeneratePDB(char const* outputFileName) {
         { // foo
             auto debugSubsection = make_shared<DebugLinesSubsection>(*checksums, *strings);
             debugSubsection->createBlock(filename);
-            debugSubsection->setCodeSize(48); // Function length (Total instruction count, including ret)
-            debugSubsection->setRelocationAddress(1, 32); // Offset from the program base (?)
-
+            debugSubsection->setCodeSize(fooFunction.length);
+            debugSubsection->setRelocationAddress(fooFunction.segment, fooFunction.offset);
             for (const auto& [offset, line] : fooFunction.lines) {
                 debugSubsection->addLineInfo(offset, LineInfo(line, line, true)); // Offset, Start, End, isStatement
             }
@@ -196,97 +242,38 @@ void GeneratePDB(char const* outputFileName) {
         { // main
             auto debugSubsection = make_shared<DebugLinesSubsection>(*checksums, *strings);
             debugSubsection->createBlock(filename);
-            debugSubsection->setCodeSize(75); // Function length (Total instruction count, including ret)
-            debugSubsection->setRelocationAddress(1, 80); // Offset from the program base (?)
-
-            for (const auto& [offset, line] : fooFunction.lines) {
+            debugSubsection->setCodeSize(mainFunction.length);
+            debugSubsection->setRelocationAddress(mainFunction.segment, mainFunction.offset);
+            for (const auto& [offset, line] : mainFunction.lines) {
                 debugSubsection->addLineInfo(offset, LineInfo(line, line, true)); // Offset, Start, End, isStatement
             }
             module.addDebugSubsection(debugSubsection);
         }
 
         {
-            auto sym = ObjNameSym();
-            sym.Signature = 0;
-            sym.Name = moduleName;
-            AddSymbol(module, sym);
-        }
-        {
-            auto cs = Compile3Sym();
-            cs.Flags = CompileSym3Flags::None;
-            cs.Machine = CPUType::Pentium3; // Assume. This may not matter?
-            // The Frontend version can be whatever.
-            cs.VersionFrontendMajor = 19;
-            cs.VersionFrontendMinor = 23;
-            cs.VersionFrontendBuild = 28016;
-            cs.VersionFrontendQFE = 4;
-
             // The backend version must be a valid MSVC version. See LLD documentation:
             // https://github.com/llvm-mirror/lld/blob/master/COFF/PDB.cpp#L1395
-            cs.VersionBackendMajor = 19;
-            cs.VersionBackendMinor = 23;
-            cs.VersionBackendBuild = 28016;
-            cs.VersionBackendQFE = 4;
-            cs.Version = "Microsoft (R) Optimizing Compiler";
-
-            // cs.setLanguage(SourceLanguage::Link);
-            AddSymbol(module, cs);
-        }
-        {
-            auto sym = UsingNamespaceSym(SymbolRecordKind::UsingNamespaceSym);
-            sym.Name = "std";
+            auto sym = Compile3Sym();
+            sym.VersionBackendMajor = 14;
+            sym.VersionBackendMinor = 10;
+            sym.VersionBackendBuild = 25019;
+            sym.VersionBackendQFE = 0;
+            sym.Version = "AutoPDB v0.1";
+            sym.setLanguage(SourceLanguage::Cpp);
             AddSymbol(module, sym);
         }
+        FuckYou(module);
         {
             auto sym = ProcSym(SymbolRecordKind::GlobalProcSym);
             sym.Parent = 0;
-            sym.End = 240;
+            sym.End = module.getNextSymbolOffset() + 92; // 336
             sym.Next = 0;
-            sym.CodeSize = 48;
-            sym.DbgStart = 3;
-            sym.DbgEnd = 46;
-            sym.FunctionType = TypeIndex(0x1001);
-            sym.CodeOffset = 32;
-            sym.Segment = 1;
-            sym.Flags = ProcSymFlags::HasFP;
-            sym.Name = "foo";
-            AddSymbol(module, sym);
-        }
-        {
-            auto sym = FrameProcSym(SymbolRecordKind::FrameProcSym);
-            sym.TotalFrameBytes = 0;
-            sym.PaddingFrameBytes = 0;
-            sym.OffsetToPadding = 0;
-            sym.BytesOfCalleeSavedRegisters = 0;
-            sym.OffsetOfExceptionHandler = 0;
-            sym.SectionIdOfExceptionHandler = 0;
-            sym.Flags = FrameProcedureOptions::AsynchronousExceptionHandling | FrameProcedureOptions::OptimizedForSpeed;
-            AddSymbol(module, sym);
-        }
-        {
-            auto sym = BPRelativeSym(SymbolRecordKind::BPRelativeSym);
-            sym.Offset = 8;
-            sym.Type = TypeIndex(SimpleTypeKind::Int32);
-            sym.Name = "bar";
-            AddSymbol(module, sym);
-        }
-        {
-            auto sym = ScopeEndSym(SymbolRecordKind::ScopeEndSym);
-            AddSymbol(module, sym);
-        }
-        {
-            auto sym = ProcSym(SymbolRecordKind::GlobalProcSym);
-            sym.Parent = 0;
-            sym.End = 336;
-            sym.Next = 0;
-            sym.CodeSize = 75;
-            sym.DbgStart = 4;
-            sym.DbgEnd = 71;
+            sym.CodeSize = mainFunction.length;
             sym.FunctionType = TypeIndex(0x1003); 
-            sym.CodeOffset = 80;
-            sym.Segment = 1;
+            sym.CodeOffset = mainFunction.offset;
+            sym.Segment = mainFunction.segment;
             sym.Flags = ProcSymFlags::HasFP;
-            sym.Name = "main";
+            sym.Name = mainFunction.nickName;
             AddSymbol(module, sym);
         }
         {
@@ -300,34 +287,31 @@ void GeneratePDB(char const* outputFileName) {
             sym.Flags = FrameProcedureOptions::AsynchronousExceptionHandling | FrameProcedureOptions::OptimizedForSpeed;
             AddSymbol(module, sym);
         }
-        {
+        for (const Local& local : mainFunction.locals) {
             auto sym = BPRelativeSym(SymbolRecordKind::BPRelativeSym);
-            sym.Offset = -4;
-            sym.Type = TypeIndex(SimpleTypeKind::Int32);
-            sym.Name = "a";
+            sym.Offset = local.offset;
+            sym.Type = local.type;
+            sym.Name = local.name;
             AddSymbol(module, sym);
         }
         {
             auto sym = ScopeEndSym(SymbolRecordKind::ScopeEndSym);
             AddSymbol(module, sym);
         }
-        {
-            auto sym = BuildInfoSym(SymbolRecordKind::BuildInfoSym);
-            sym.BuildId = TypeIndex(0x1009);
-            AddSymbol(module, sym);
-        }
     }
     { // Module: Linker
         DbiModuleDescriptorBuilder& module = ExitOnErr(dbiBuilder.addModuleInfo("* Linker *"));
 
+        // The "thunk" is a jump redirect to a function. This "5" refers to 0x401005 -- 5 instructions off of the base.
+
         { // Foo thunk
             TrampolineSym sym(SymbolRecordKind::TrampolineSym);
             sym.Type = TrampolineType::TrampIncremental;
-            sym.Size = 5;
-            sym.ThunkOffset = 5; // The "thunk" is a jump redirect to a function. This "5" refers to 0x401005 -- 5 instructions off of the base.
+            sym.Size = 5; // Total number of opcodes in this symbol
+            sym.ThunkOffset = 5; 
             sym.ThunkSection = 1;
-            sym.TargetOffset = 32;
-            sym.TargetSection = 1;
+            sym.TargetOffset = fooFunction.offset;
+            sym.TargetSection = fooFunction.segment;
             AddSymbol(module, sym);
         }
         { // Main thunk
@@ -336,8 +320,8 @@ void GeneratePDB(char const* outputFileName) {
             sym.Size = 5;
             sym.ThunkOffset = 10;
             sym.ThunkSection = 1;
-            sym.TargetOffset = 80;
-            sym.TargetSection = 1;
+            sym.TargetOffset = mainFunction.offset;
+            sym.TargetSection = mainFunction.segment;
             AddSymbol(module, sym);
         }
     }
@@ -361,36 +345,35 @@ void GeneratePDB(char const* outputFileName) {
         dbiBuilder.addSectionContrib(sc);
     }
 
-    // Base addr is 0x4F1000
     {
         PublicSym32 sym(SymbolRecordKind::PublicSym32);
         sym.Flags = PublicSymFlags::Function;
-        sym.Offset = 32;
-        sym.Segment = 1;
-        sym.Name = "?foo@@YAHH@Z";
-        gsiBuilder.addPublicSymbol(sym);
-    }
-    {
-        PublicSym32 sym(SymbolRecordKind::PublicSym32);
-        sym.Flags = PublicSymFlags::Function;
-        sym.Offset = 80;
-        sym.Segment = 1;
-        sym.Name = "_main";
+        sym.Offset = fooFunction.offset;
+        sym.Segment = fooFunction.segment;
+        sym.Name = fooFunction.properName;
         gsiBuilder.addPublicSymbol(sym);
     }
     {
         ProcRefSym sym(SymbolRecordKind::ProcRefSym);
         sym.Module = 2;
-        sym.Name = "foo";
+        sym.Name = fooFunction.nickName;
         sym.SymOffset = 148;
         sym.SumName = 0;
         gsiBuilder.addGlobalSymbol(sym);
     }
     {
+        PublicSym32 sym(SymbolRecordKind::PublicSym32);
+        sym.Flags = PublicSymFlags::Function;
+        sym.Offset = mainFunction.offset;
+        sym.Segment = mainFunction.segment;
+        sym.Name = mainFunction.properName;
+        gsiBuilder.addPublicSymbol(sym);
+    }
+    {
         ProcRefSym sym(SymbolRecordKind::ProcRefSym);
         sym.Module = 2;
-        sym.Name = "main";
-        sym.SymOffset = 148;
+        sym.Name = mainFunction.nickName;
+        sym.SymOffset = 244;
         sym.SumName = 0;
         gsiBuilder.addGlobalSymbol(sym);
     }
@@ -398,13 +381,14 @@ void GeneratePDB(char const* outputFileName) {
     {
         {
             ProcedureRecord procedure(TypeRecordKind::Procedure);
-            procedure.ReturnType = TypeIndex(SimpleTypeKind::Int32);
+            procedure.ReturnType = fooFunction.returnType;
             procedure.CallConv = CallingConvention::NearC;
             procedure.Options = FunctionOptions::None;
-            procedure.ParameterCount = 1;
+            assert(fooFunction.arguments.size() <= 0xFFFF);
+            procedure.ParameterCount = static_cast<uint16_t>(fooFunction.arguments.size());
             {
                 ArgListRecord argList(TypeRecordKind::ArgList);
-                argList.ArgIndices = {TypeIndex(SimpleTypeKind::Int32)};
+                argList.ArgIndices = fooFunction.arguments;
                 procedure.ArgumentList = typeBuilder->writeLeafType(argList);
                 CVType cvt = typeBuilder->getType(procedure.ArgumentList);
                 tpiBuilder.addTypeRecord(cvt.RecordData, ExitOnErr(hashTypeRecord(cvt)));
@@ -414,13 +398,14 @@ void GeneratePDB(char const* outputFileName) {
         }
         {
             ProcedureRecord procedure(TypeRecordKind::Procedure);
-            procedure.ReturnType = TypeIndex(SimpleTypeKind::Int32);
+            procedure.ReturnType = mainFunction.returnType;
             procedure.CallConv = CallingConvention::NearC;
             procedure.Options = FunctionOptions::None;
-            procedure.ParameterCount = 0;
+            assert(mainFunction.arguments.size() <= 0xFFFF);
+            procedure.ParameterCount = static_cast<uint16_t>(mainFunction.arguments.size());
             {
                 ArgListRecord argList(TypeRecordKind::ArgList);
-                argList.ArgIndices = {};
+                argList.ArgIndices = mainFunction.arguments;
                 procedure.ArgumentList = typeBuilder->writeLeafType(argList);
                 CVType cvt = typeBuilder->getType(procedure.ArgumentList);
                 tpiBuilder.addTypeRecord(cvt.RecordData, ExitOnErr(hashTypeRecord(cvt)));
@@ -438,6 +423,12 @@ void GeneratePDB(char const* outputFileName) {
 }
 
 int main(int argc, char** argv) {
+    {
+        auto [section, offset] = ConvertRVA(0x401020);
+        fooFunction.segment = section;
+        fooFunction.offset = offset;
+    }
+    fooFunction.length = 48;
     fooFunction.lines = {
         {0x00, 6},
         {0x03, 7},
@@ -447,7 +438,22 @@ int main(int argc, char** argv) {
         {0x2B, 11},
         {0x2E, 12},
     };
+    fooFunction.arguments = {TypeIndex(SimpleTypeKind::Int32)};
+    fooFunction.returnType = TypeIndex(SimpleTypeKind::Int32);
+    fooFunction.properName = "?foo@@YAHH@Z";
+    fooFunction.nickName = "foo";
+    fooFunction.locals.emplace_back(Local{
+        8,
+        TypeIndex(SimpleTypeKind::Int32),
+        "bar"
+    });
 
+    {
+        auto [section, offset] = ConvertRVA(0x401050);
+        mainFunction.segment = section;
+        mainFunction.offset = offset;
+    }
+    mainFunction.length = 75;
     mainFunction.lines = {
         {0x00, 14},
         {0x04, 15},
@@ -459,6 +465,15 @@ int main(int argc, char** argv) {
         {0x44, 21},
         {0x47, 22},
     };
+    mainFunction.arguments = {};
+    mainFunction.returnType = TypeIndex(SimpleTypeKind::Int32);
+    mainFunction.properName = "_main";
+    mainFunction.nickName = "main";
+    mainFunction.locals.emplace_back(Local{
+        -4,
+        TypeIndex(SimpleTypeKind::Int32),
+        "a"
+    });
 
     GeneratePDB("../Generated/PdbTest.pdb");
 }
