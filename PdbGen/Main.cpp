@@ -29,11 +29,14 @@ using namespace std;
 using namespace llvm::pdb;
 using namespace llvm::COFF;
 using namespace llvm::codeview;
+using namespace llvm::msf;
+using namespace llvm;
+using namespace llvm::object;
 
 // I hate globals.
 llvm::BumpPtrAllocator llvmAllocator;
-GlobalTypeTableBuilder* ttb = new GlobalTypeTableBuilder(llvmAllocator);
 llvm::ExitOnError ExitOnErr;
+const COFFObjectFile* obj;
 
 struct ModuleInfo
 {
@@ -46,23 +49,15 @@ struct ModuleInfo
 
 ModuleInfo ReadModuleInfo(const string& modulePath)
 {
-    using namespace llvm;
-    using namespace llvm::object;
-
     ModuleInfo info;
 
-    Expected<OwningBinary<Binary>> expectedBinary = createBinary(modulePath);
-    if (!expectedBinary) {
-        ExitOnErr(expectedBinary.takeError());
-    }
-
-    OwningBinary<Binary> binary = move(*expectedBinary);
+    OwningBinary<Binary> binary = ExitOnErr(createBinary(modulePath));
 
     if (!binary.getBinary()->isCOFF()) {
         ExitOnErr(errorCodeToError(make_error_code(errc::not_supported)));
     }
 
-    const auto obj = llvm::cast<COFFObjectFile>(binary.getBinary());
+    obj = llvm::cast<COFFObjectFile>(binary.getBinary());
     for (const auto& sectionRef : obj->sections())
         info.sections.push_back(*obj->getCOFFSection(sectionRef));
 
@@ -87,6 +82,28 @@ ModuleInfo ReadModuleInfo(const string& modulePath)
     return info;
 }
 
+
+// Returns {Section index, offset}
+// Adapted from https://github.com/Mixaill/FakePDB/blob/master/src_pdbgen/pefile.cpp
+std::tuple<uint16_t, uint32_t> ConvertRVA(uint32_t rva) {
+    rva -= obj->getImageBase();
+
+    uint16_t index = 1;
+    for (const SectionRef& sectionRef : obj->sections()) {
+        const coff_section* section = obj->getCOFFSection(sectionRef);
+        int a = sectionRef.getIndex();
+        int b = sectionRef.getAddress();
+        int c = sectionRef.getSize();
+        uint32_t s_va = section->VirtualAddress;
+        if (s_va <= rva && rva <= s_va + section->VirtualSize) {
+            return {index, rva - s_va};
+        }
+
+        index++;
+    }
+    return {0, 0};
+}
+
 // TODO: in64_t? How else do we work with 64 bit processes?
 PublicSym32 CreatePublicSymbol(const char* name, int32_t offset) {
     using namespace llvm::codeview;
@@ -104,6 +121,14 @@ void AddSymbol(llvm::pdb::DbiModuleDescriptorBuilder& modiBuilder, SymType& sym)
     modiBuilder.addSymbol(cvSym);
 }
 
+struct MainFunction {
+    std::vector<std::tuple<int, int>> lines;
+} mainFunction;
+
+struct FooFunction {
+    std::vector<std::tuple<int, int>> lines;
+} fooFunction;
+
 void GeneratePDB(char const* outputFileName) {
     ModuleInfo moduleInfo = ReadModuleInfo("C:/Users/localhost/Documents/GitHub/PdbGen/PdbTest/Debug/PdbTest.exe");
     // Name doesn't actually matter, since there is no real object file.
@@ -113,30 +138,26 @@ void GeneratePDB(char const* outputFileName) {
     // I really hope this one doesn't matter.
     const char* tmpFilename = R"(C:\Users\LOCALH~1\AppData\Local\Temp\lnk{CD77352F-E54C-4392-A458-0DE42662F1A3}.tmp)";
 
+
     PDBFileBuilder* builder = new PDBFileBuilder(llvmAllocator);
     ExitOnErr(builder->initialize(4096)); // Blocksize
+    MSFBuilder& msfBuilder = builder->getMsfBuilder();
+    InfoStreamBuilder& infoBuilder = builder->getInfoBuilder();
+    DbiStreamBuilder& dbiBuilder = builder->getDbiBuilder();
+    DebugStringTableSubsection* strings = new DebugStringTableSubsection();
+    GSIStreamBuilder& gsiBuilder = builder->getGsiBuilder();
+    TpiStreamBuilder& tpiBuilder = builder->getTpiBuilder();
+    TpiStreamBuilder& ipiBuilder = builder->getIpiBuilder();
+    GlobalTypeTableBuilder* typeBuilder = new GlobalTypeTableBuilder(llvmAllocator);
 
     // Add each of the reserved streams. We may not put any data in them, but they at least have to be present.
-    for (uint32_t i = 0; i < kSpecialStreamCount; ++i)
-        ExitOnErr(builder->getMsfBuilder().addStream(0));
+    for (int i=0; i<kSpecialStreamCount; i++) ExitOnErr(msfBuilder.addStream(0));
 
-    InfoStreamBuilder& infoBuilder = builder->getInfoBuilder();
     infoBuilder.setAge(moduleInfo.age);
     infoBuilder.setGuid(moduleInfo.guid);
     infoBuilder.setSignature(moduleInfo.signature);
     infoBuilder.addFeature(PdbRaw_FeatureSig::VC140);
     infoBuilder.setVersion(PdbImplVC70);
-
-    DbiStreamBuilder& dbiBuilder = builder->getDbiBuilder();
-    dbiBuilder.setVersionHeader(PdbDbiV70);
-    dbiBuilder.setAge(moduleInfo.age);
-    dbiBuilder.setBuildNumber(36375);
-    dbiBuilder.setPdbDllVersion(28106);
-    dbiBuilder.setPdbDllRbld(4);
-    dbiBuilder.setFlags(1);
-    dbiBuilder.setMachineType(moduleInfo.is64Bit ? PDB_Machine::Amd64 : PDB_Machine::x86);
-
-    DebugStringTableSubsection* strings = new DebugStringTableSubsection();
 
     const vector<SecMapEntry> sectionMap = DbiStreamBuilder::createSectionMap(moduleInfo.sections);
     dbiBuilder.setSectionMap(sectionMap);
@@ -145,22 +166,19 @@ void GeneratePDB(char const* outputFileName) {
         {reinterpret_cast<const uint8_t*>(moduleInfo.sections.data()),
          moduleInfo.sections.size() * sizeof(moduleInfo.sections[0])}));
 
-    GSIStreamBuilder& gsiBuilder = builder->getGsiBuilder();
+    dbiBuilder.setVersionHeader(PdbDbiV70);
     dbiBuilder.setPublicsStreamIndex(gsiBuilder.getPublicsStreamIndex());
+    ExitOnErr(dbiBuilder.addModuleInfo("* Linker Generated Manifest RES *"));
     
-    TpiStreamBuilder& tpiBuilder = builder->getTpiBuilder();
     tpiBuilder.setVersionHeader(PdbTpiV80);
-
-    DbiModuleDescriptorBuilder& module = ExitOnErr(dbiBuilder.addModuleInfo("* Linker Generated Manifest RES *"));
 
     { // Module: Main.obj
         DbiModuleDescriptorBuilder& module = ExitOnErr(dbiBuilder.addModuleInfo(moduleName));
         module.setObjFileName(moduleName);
-        // Add files to module (presumably necessary to associate source code lines)
         ExitOnErr(dbiBuilder.addModuleSourceFile(module, filename));
 
         auto checksums = make_shared<DebugChecksumsSubsection>(*strings);
-        checksums->addChecksum(filename, FileChecksumKind::MD5, MD5::HashFile(filename));
+        checksums->addChecksum(filename, FileChecksumKind::MD5, ::MD5::HashFile(filename));
         module.addDebugSubsection(checksums);
 
         { // foo
@@ -169,13 +187,9 @@ void GeneratePDB(char const* outputFileName) {
             debugSubsection->setCodeSize(48); // Function length (Total instruction count, including ret)
             debugSubsection->setRelocationAddress(1, 32); // Offset from the program base (?)
 
-            debugSubsection->addLineInfo(0, LineInfo(6, 6, true)); // Offset, Start, End, isStatement
-            debugSubsection->addLineInfo(3, LineInfo(7, 7, true)); // Offset, Start, End, isStatement
-            debugSubsection->addLineInfo(12, LineInfo(8, 8, true)); // Offset, Start, End, isStatement
-            debugSubsection->addLineInfo(19, LineInfo(9, 9, true)); // Offset, Start, End, isStatement
-            debugSubsection->addLineInfo(28, LineInfo(10, 10, true)); // Offset, Start, End, isStatement
-            debugSubsection->addLineInfo(43, LineInfo(11, 11, true)); // Offset, Start, End, isStatement
-            debugSubsection->addLineInfo(46, LineInfo(12, 12, true)); // Offset, Start, End, isStatement
+            for (const auto& [offset, line] : fooFunction.lines) {
+                debugSubsection->addLineInfo(offset, LineInfo(line, line, true)); // Offset, Start, End, isStatement
+            }
             module.addDebugSubsection(debugSubsection);
         }
 
@@ -185,15 +199,9 @@ void GeneratePDB(char const* outputFileName) {
             debugSubsection->setCodeSize(75); // Function length (Total instruction count, including ret)
             debugSubsection->setRelocationAddress(1, 80); // Offset from the program base (?)
 
-            debugSubsection->addLineInfo(0, LineInfo(14, 14, true)); // Offset, Start, End, isStatement
-            debugSubsection->addLineInfo(4, LineInfo(15, 15, true)); // Offset, Start, End, isStatement
-            debugSubsection->addLineInfo(11, LineInfo(16, 16, true)); // Offset, Start, End, isStatement
-            debugSubsection->addLineInfo(27, LineInfo(17, 17, true)); // Offset, Start, End, isStatement
-            debugSubsection->addLineInfo(36, LineInfo(18, 18, true)); // Offset, Start, End, isStatement
-            debugSubsection->addLineInfo(44, LineInfo(19, 19, true)); // Offset, Start, End, isStatement
-            debugSubsection->addLineInfo(53, LineInfo(20, 20, true)); // Offset, Start, End, isStatement
-            debugSubsection->addLineInfo(68, LineInfo(21, 21, true)); // Offset, Start, End, isStatement
-            debugSubsection->addLineInfo(71, LineInfo(22, 22, true)); // Offset, Start, End, isStatement
+            for (const auto& [offset, line] : fooFunction.lines) {
+                debugSubsection->addLineInfo(offset, LineInfo(line, line, true)); // Offset, Start, End, isStatement
+            }
             module.addDebugSubsection(debugSubsection);
         }
 
@@ -312,23 +320,23 @@ void GeneratePDB(char const* outputFileName) {
     { // Module: Linker
         DbiModuleDescriptorBuilder& module = ExitOnErr(dbiBuilder.addModuleInfo("* Linker *"));
 
-        {
+        { // Foo thunk
             TrampolineSym sym(SymbolRecordKind::TrampolineSym);
             sym.Type = TrampolineType::TrampIncremental;
             sym.Size = 5;
-            sym.ThunkOffset = 5;
-            sym.TargetOffset = 32;
+            sym.ThunkOffset = 5; // The "thunk" is a jump redirect to a function. This "5" refers to 0x401005 -- 5 instructions off of the base.
             sym.ThunkSection = 1;
+            sym.TargetOffset = 32;
             sym.TargetSection = 1;
             AddSymbol(module, sym);
         }
-        {
+        { // Main thunk
             TrampolineSym sym(SymbolRecordKind::TrampolineSym);
             sym.Type = TrampolineType::TrampIncremental;
             sym.Size = 5;
             sym.ThunkOffset = 10;
-            sym.TargetOffset = 80;
             sym.ThunkSection = 1;
+            sym.TargetOffset = 80;
             sym.TargetSection = 1;
             AddSymbol(module, sym);
         }
@@ -373,6 +381,14 @@ void GeneratePDB(char const* outputFileName) {
     {
         ProcRefSym sym(SymbolRecordKind::ProcRefSym);
         sym.Module = 2;
+        sym.Name = "foo";
+        sym.SymOffset = 148;
+        sym.SumName = 0;
+        gsiBuilder.addGlobalSymbol(sym);
+    }
+    {
+        ProcRefSym sym(SymbolRecordKind::ProcRefSym);
+        sym.Module = 2;
         sym.Name = "main";
         sym.SymOffset = 148;
         sym.SumName = 0;
@@ -389,11 +405,11 @@ void GeneratePDB(char const* outputFileName) {
             {
                 ArgListRecord argList(TypeRecordKind::ArgList);
                 argList.ArgIndices = {TypeIndex(SimpleTypeKind::Int32)};
-                procedure.ArgumentList = ttb->writeLeafType(argList);
-                CVType cvt = ttb->getType(procedure.ArgumentList);
+                procedure.ArgumentList = typeBuilder->writeLeafType(argList);
+                CVType cvt = typeBuilder->getType(procedure.ArgumentList);
                 tpiBuilder.addTypeRecord(cvt.RecordData, ExitOnErr(hashTypeRecord(cvt)));
             }
-            CVType cvt = ttb->getType(ttb->writeLeafType(procedure));
+            CVType cvt = typeBuilder->getType(typeBuilder->writeLeafType(procedure));
             tpiBuilder.addTypeRecord(cvt.RecordData, ExitOnErr(hashTypeRecord(cvt)));
         }
         {
@@ -405,24 +421,44 @@ void GeneratePDB(char const* outputFileName) {
             {
                 ArgListRecord argList(TypeRecordKind::ArgList);
                 argList.ArgIndices = {};
-                procedure.ArgumentList = ttb->writeLeafType(argList);
-                CVType cvt = ttb->getType(procedure.ArgumentList);
+                procedure.ArgumentList = typeBuilder->writeLeafType(argList);
+                CVType cvt = typeBuilder->getType(procedure.ArgumentList);
                 tpiBuilder.addTypeRecord(cvt.RecordData, ExitOnErr(hashTypeRecord(cvt)));
             }
-            CVType cvt = ttb->getType(ttb->writeLeafType(procedure));
+            CVType cvt = typeBuilder->getType(typeBuilder->writeLeafType(procedure));
             tpiBuilder.addTypeRecord(cvt.RecordData, ExitOnErr(hashTypeRecord(cvt)));
         }
     }
 
-    TpiStreamBuilder& ipiBuilder = builder->getIpiBuilder();
     ipiBuilder.setVersionHeader(PdbTpiV80);
 
     GUID ignoredOutGuid;
     // Also commits all other stream builders.
     ExitOnErr(builder->commit(outputFileName, &ignoredOutGuid));
-    ::exit(0);
 }
 
 int main(int argc, char** argv) {
+    fooFunction.lines = {
+        {0x00, 6},
+        {0x03, 7},
+        {0x0C, 8},
+        {0x13, 9},
+        {0x1C, 10},
+        {0x2B, 11},
+        {0x2E, 12},
+    };
+
+    mainFunction.lines = {
+        {0x00, 14},
+        {0x04, 15},
+        {0x0B, 16},
+        {0x1B, 17},
+        {0x24, 18},
+        {0x2C, 19},
+        {0x35, 20},
+        {0x44, 21},
+        {0x47, 22},
+    };
+
     GeneratePDB("../Generated/PdbTest.pdb");
 }
