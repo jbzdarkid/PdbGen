@@ -110,6 +110,9 @@ CVSymbol CreateSymbol(SymType& sym) {
 }
 
 void Main::AddFunction(const Function& function) {
+    ExitOnErr(_dbiBuilder->addModuleSourceFile(*_module, function.filename));
+    _checksums->addChecksum(function.filename, FileChecksumKind::MD5, ::MD5::HashFile(function.filename));
+
     // Add line number <-> address associations
     auto debugSubsection = make_shared<DebugLinesSubsection>(*_checksums, *_strings);
     debugSubsection->createBlock(function.filename);
@@ -191,14 +194,14 @@ void Main::AddFunction(const Function& function) {
 
     {
         ProcedureRecord procedure(TypeRecordKind::Procedure);
-        procedure.ReturnType = fooFunction.returnType;
+        procedure.ReturnType = function.returnType;
         procedure.CallConv = CallingConvention::NearC;
         procedure.Options = FunctionOptions::None;
-        assert(fooFunction.arguments.size() <= 0xFFFF);
-        procedure.ParameterCount = static_cast<uint16_t>(fooFunction.arguments.size());
+        assert(function.arguments.size() <= 0xFFFF);
+        procedure.ParameterCount = static_cast<uint16_t>(function.arguments.size());
         {
             ArgListRecord argList(TypeRecordKind::ArgList);
-            argList.ArgIndices = fooFunction.arguments;
+            argList.ArgIndices = function.arguments;
             procedure.ArgumentList = _typeBuilder->writeLeafType(argList);
             CVType cvt = _typeBuilder->getType(procedure.ArgumentList);
             _tpiBuilder->addTypeRecord(cvt.RecordData, ExitOnErr(hashTypeRecord(cvt)));
@@ -249,10 +252,7 @@ void Main::GeneratePDB(char const* outputFileName) {
 
     _module = &ExitOnErr(_dbiBuilder->addModuleInfo(moduleName));
     _module->setObjFileName(moduleName);
-    ExitOnErr(_dbiBuilder->addModuleSourceFile(*_module, fooFunction.filename));
-
     _checksums = make_shared<DebugChecksumsSubsection>(*_strings);
-    _checksums->addChecksum(fooFunction.filename, FileChecksumKind::MD5, ::MD5::HashFile(fooFunction.filename));
     _module->addDebugSubsection(_checksums);
 
     {
