@@ -32,64 +32,78 @@ using namespace llvm::object;
 using namespace llvm::msf;
 using namespace llvm::pdb;
 
-struct ModuleInfo
-{
-    bool is64Bit{};
-    vector<llvm::object::coff_section> sections;
-    GUID guid{};
-    uint32_t age{};
-    uint32_t signature{};
-};
+Main::Main(const std::string& inputExe) {
+    _builder = new PDBFileBuilder(_allocator); // @Leak
+    ExitOnErr(_builder->initialize(4096)); // Blocksize
 
-ModuleInfo ReadModuleInfo(const string& modulePath)
-{
-    llvm::ExitOnError ExitOnErr;
-    ModuleInfo info;
+    _msfBuilder = &_builder->getMsfBuilder();
+    for (int i=0; i<kSpecialStreamCount; i++) ExitOnErr(_msfBuilder->addStream(0));
 
-    OwningBinary<Binary> binary = ExitOnErr(createBinary(modulePath));
+    OwningBinary<Binary> binary = ExitOnErr(createBinary(inputExe));
+    auto [bin, buff] = binary.takeBinary();
+    assert(bin->isCOFF());
+    _binary = OwningBinary<COFFObjectFile>(llvm::unique_dyn_cast<COFFObjectFile>(bin), std::move(buff));
 
-    if (!binary.getBinary()->isCOFF()) {
-        ExitOnErr(errorCodeToError(make_error_code(errc::not_supported)));
+    const DebugInfo* debugInfo = nullptr;
+    for (const debug_directory& debugDir : _binary.getBinary()->debug_directories()) {
+        if (debugDir.Type != COFF::IMAGE_DEBUG_TYPE_CODEVIEW) continue;
+        StringRef pdbFileName;
+        if (auto ec = _binary.getBinary()->getDebugPDBInfo(&debugDir, debugInfo, pdbFileName)) ExitOnErr(errorCodeToError(ec));
+        if (debugInfo->Signature.CVSignature == OMF::Signature::PDB70) break;
     }
+    assert(debugInfo);
 
-    const COFFObjectFile* obj = llvm::cast<COFFObjectFile>(binary.getBinary());
-    for (const auto& sectionRef : obj->sections())
-        info.sections.push_back(*obj->getCOFFSection(sectionRef));
+    GUID guid;
+    for (size_t i = 0; i<16; i++) guid.Guid[i] = debugInfo->PDB70.Signature[i];
 
-    info.is64Bit = obj->is64();
-    for (const auto& debugDir : obj->debug_directories()) {
-        info.signature = debugDir.TimeDateStamp; // TODO: Timestamp.now()?
-        if (debugDir.Type == COFF::IMAGE_DEBUG_TYPE_CODEVIEW) {
-            const DebugInfo* debugInfo;
-            StringRef pdbFileName;
-            if (auto ec = obj->getDebugPDBInfo(&debugDir, debugInfo, pdbFileName))
-                ExitOnErr(errorCodeToError(ec));
+    _infoBuilder = &_builder->getInfoBuilder();
+    _infoBuilder->setAge(debugInfo->PDB70.Age);
+    _infoBuilder->setGuid(guid);
+    _infoBuilder->addFeature(PdbRaw_FeatureSig::VC140);
+    _infoBuilder->setVersion(PdbImplVC70);
 
-            if (debugInfo->Signature.CVSignature == OMF::Signature::PDB70) {
-                info.age = debugInfo->PDB70.Age;
-                for (size_t i = 0; i<16; i++) info.guid.Guid[i] = debugInfo->PDB70.Signature[i];
-                // memcpy(&info.guid, debugInfo->PDB70.Signature, sizeof(info.guid));
-                break;
-            }
-        }
+    _gsiBuilder = &_builder->getGsiBuilder();
+
+    _dbiBuilder = &_builder->getDbiBuilder();
+    _dbiBuilder->setVersionHeader(PdbDbiV70);
+    _dbiBuilder->setPublicsStreamIndex(_gsiBuilder->getPublicsStreamIndex());
+
+    _tpiBuilder = &_builder->getTpiBuilder();
+    _tpiBuilder->setVersionHeader(PdbTpiV80);
+
+    _ipiBuilder = &_builder->getIpiBuilder();
+    _ipiBuilder->setVersionHeader(PdbTpiV80);
+
+
+    _typeBuilder = new GlobalTypeTableBuilder(_allocator); // @Leak
+
+    _strings = new DebugStringTableSubsection(); // @Leak
+    _checksums = make_shared<DebugChecksumsSubsection>(*_strings);
+    _module = &ExitOnErr(_dbiBuilder->addModuleInfo("D:/dummy.obj"));
+    _module->setObjFileName("D:/dummy.obj");
+    _module->addDebugSubsection(_checksums);
+    {
+        // The backend version must be a valid MSVC version. See LLD documentation:
+        // https://github.com/llvm-mirror/lld/blob/master/COFF/PDB.cpp#L1395
+        auto sym = Compile3Sym();
+        sym.VersionBackendMajor = 14;
+        sym.VersionBackendMinor = 10;
+        sym.VersionBackendBuild = 25019;
+        sym.VersionBackendQFE = 0;
+        sym.Version = "AutoPDB v0.1";
+        sym.setLanguage(SourceLanguage::Cpp);
+        _module->addSymbol(CreateSymbol(sym));
     }
-
-    return info;
 }
 
 // Returns {Segment index, offset}
 // Adapted from https://github.com/Mixaill/FakePDB/blob/master/src_pdbgen/pefile.cpp
-bool ConvertRVA(uint64_t rva, uint16_t& segmentRef, uint32_t& offsetRef) {
-    llvm::ExitOnError ExitOnErr;
-    OwningBinary<Binary> binary = ExitOnErr(createBinary("C:/Users/localhost/Documents/GitHub/PdbGen/PdbTest/Debug/PdbTest.exe"));
-    assert(binary.getBinary()->isCOFF());
-    const COFFObjectFile* obj = llvm::cast<COFFObjectFile>(binary.getBinary());
-
-    rva -= obj->getImageBase();
+bool Main::ConvertRVA(uint64_t rva, uint16_t& segmentRef, uint32_t& offsetRef) {
+    rva -= _binary.getBinary()->getImageBase();
 
     uint16_t index = 1;
-    for (const SectionRef& sectionRef : obj->sections()) {
-        const coff_section* section = obj->getCOFFSection(sectionRef);
+    for (const SectionRef& sectionRef : _binary.getBinary()->sections()) {
+        const coff_section* section = _binary.getBinary()->getCOFFSection(sectionRef);
         uint32_t s_va = section->VirtualAddress;
         if (s_va <= rva && rva <= s_va + section->VirtualSize) {
             segmentRef = index;
@@ -202,71 +216,20 @@ void Main::AddFunction(const Function& function) {
         CVType cvt = _typeBuilder->getType(_typeBuilder->writeLeafType(procedure));
         _tpiBuilder->addTypeRecord(cvt.RecordData, ExitOnErr(hashTypeRecord(cvt)));
     }
-
 }
 
-Main::Main(const std::string& inputExe) {
-    _builder = new PDBFileBuilder(_allocator); // @Leak
-    ExitOnErr(_builder->initialize(4096)); // Blocksize
-
-    _msfBuilder = &_builder->getMsfBuilder();
-    for (int i=0; i<kSpecialStreamCount; i++) ExitOnErr(_msfBuilder->addStream(0));
-
-    _infoBuilder = &_builder->getInfoBuilder();
-    ModuleInfo moduleInfo = ReadModuleInfo(inputExe);
-    _infoBuilder->setAge(moduleInfo.age);
-    _infoBuilder->setGuid(moduleInfo.guid);
-    _infoBuilder->setSignature(moduleInfo.signature);
-    _infoBuilder->addFeature(PdbRaw_FeatureSig::VC140);
-    _infoBuilder->setVersion(PdbImplVC70);
-
-    _gsiBuilder = &_builder->getGsiBuilder();
-
-    _dbiBuilder = &_builder->getDbiBuilder();
-    _dbiBuilder->setVersionHeader(PdbDbiV70);
-    _dbiBuilder->setPublicsStreamIndex(_gsiBuilder->getPublicsStreamIndex());
-
-    _tpiBuilder = &_builder->getTpiBuilder();
-    _tpiBuilder->setVersionHeader(PdbTpiV80);
-
-    _ipiBuilder = &_builder->getIpiBuilder();
-    _ipiBuilder->setVersionHeader(PdbTpiV80);
-
-
-    _typeBuilder = new GlobalTypeTableBuilder(_allocator); // @Leak
-
-    _strings = new DebugStringTableSubsection(); // @Leak
-    _checksums = make_shared<DebugChecksumsSubsection>(*_strings);
-    _module = &ExitOnErr(_dbiBuilder->addModuleInfo("D:/dummy.obj"));
-    _module->setObjFileName("D:/dummy.obj");
-    _module->addDebugSubsection(_checksums);
-}
-
-void Main::GeneratePDB(const std::string& outputFileName, const Function& fooFunction, const Function& mainFunction) {
-    ModuleInfo moduleInfo = ReadModuleInfo("C:/Users/localhost/Documents/GitHub/PdbGen/PdbTest/Debug/PdbTest.exe");
-
-    const vector<SecMapEntry> sectionMap = DbiStreamBuilder::createSectionMap(moduleInfo.sections);
-    _dbiBuilder->setSectionMap(sectionMap);
-    ExitOnErr(_dbiBuilder->addDbgStream(
-        DbgHeaderType::SectionHdr,
-        {reinterpret_cast<const uint8_t*>(moduleInfo.sections.data()),
-         moduleInfo.sections.size() * sizeof(moduleInfo.sections[0])}));
-
-    {
-        // The backend version must be a valid MSVC version. See LLD documentation:
-        // https://github.com/llvm-mirror/lld/blob/master/COFF/PDB.cpp#L1395
-        auto sym = Compile3Sym();
-        sym.VersionBackendMajor = 14;
-        sym.VersionBackendMinor = 10;
-        sym.VersionBackendBuild = 25019;
-        sym.VersionBackendQFE = 0;
-        sym.Version = "AutoPDB v0.1";
-        sym.setLanguage(SourceLanguage::Cpp);
-        _module->addSymbol(CreateSymbol(sym));
+void Main::Generate(const std::string& outputFileName) {
+    std::vector<coff_section> sections;
+    for (const SectionRef& sectionRef : _binary.getBinary()->sections()) {
+        sections.push_back(*_binary.getBinary()->getCOFFSection(sectionRef));
     }
-
-    AddFunction(fooFunction);
-    AddFunction(mainFunction);
+    const std::vector<SecMapEntry> sectionMap = DbiStreamBuilder::createSectionMap(sections);
+    _dbiBuilder->setSectionMap(sectionMap);
+    ArrayRef<uint8_t> sectionData = {
+        reinterpret_cast<const uint8_t*>(sections.data()),
+        sections.size() * sizeof(coff_section)   
+    };
+    ExitOnErr(_dbiBuilder->addDbgStream(DbgHeaderType::SectionHdr, sectionData));
 
     GUID ignoredOutGuid;
     // Also commits all other stream builders.
@@ -274,8 +237,10 @@ void Main::GeneratePDB(const std::string& outputFileName, const Function& fooFun
 }
 
 int main(int argc, char** argv) {
+    Main main("../PdbTest/Debug/PdbTest.exe");
+
     Function fooFunction;
-    ConvertRVA(0x401020, fooFunction.segment, fooFunction.offset);
+    main.ConvertRVA(0x401020, fooFunction.segment, fooFunction.offset);
     fooFunction.length = 48;
     fooFunction.lines = {
         {0x00, 6},
@@ -296,11 +261,12 @@ int main(int argc, char** argv) {
         TypeIndex(SimpleTypeKind::Int32),
         "bar"
     });
-    ConvertRVA(0x401005, fooFunction.thunkSegment, fooFunction.thunkOffset);
+    main.ConvertRVA(0x401005, fooFunction.thunkSegment, fooFunction.thunkOffset);
     fooFunction.thunkLength = 5;
+    main.AddFunction(fooFunction);
 
     Function mainFunction;
-    ConvertRVA(0x401050, mainFunction.segment, mainFunction.offset);
+    main.ConvertRVA(0x401050, mainFunction.segment, mainFunction.offset);
     mainFunction.length = 75;
     mainFunction.lines = {
         {0x00, 14},
@@ -323,9 +289,9 @@ int main(int argc, char** argv) {
         TypeIndex(SimpleTypeKind::Int32),
         "a"
     });
-    ConvertRVA(0x40100A, mainFunction.thunkSegment, mainFunction.thunkOffset);
+    main.ConvertRVA(0x40100A, mainFunction.thunkSegment, mainFunction.thunkOffset);
     mainFunction.thunkLength = 5;
+    main.AddFunction(mainFunction);
 
-    Main main("../PdbTest/Debug/PdbTest.exe");
-    main.GeneratePDB("../Generated/PdbTest.pdb", fooFunction, mainFunction);
+    main.Generate("../Generated/PdbTest.pdb");
 }

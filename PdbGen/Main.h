@@ -37,8 +37,9 @@ struct Function {
 class Main {
 public:
     Main(const std::string& inputExe);
-    void GeneratePDB(const std::string& outputFileName, const Function& fooFunction, const Function& mainFunction);
+    bool ConvertRVA(uint64_t rva, uint16_t& segmentRef, uint32_t& offsetRef);
     void AddFunction(const Function& function);
+    void Generate(const std::string& outputFileName);
 
 private:
     template <typename SymType>
@@ -46,19 +47,19 @@ private:
         return llvm::codeview::SymbolSerializer::writeOneSymbol(sym, _allocator, CodeViewContainer::Pdb);
     }
 
+    llvm::object::OwningBinary<llvm::object::COFFObjectFile> _binary;
+
     llvm::BumpPtrAllocator _allocator;
     llvm::ExitOnError ExitOnErr;
-
-    llvm::pdb::PDBFileBuilder* _builder;
-    llvm::msf::MSFBuilder* _msfBuilder;
-    llvm::pdb::InfoStreamBuilder* _infoBuilder;
-    llvm::pdb::DbiStreamBuilder* _dbiBuilder;
-    llvm::pdb::TpiStreamBuilder* _tpiBuilder; 
-    llvm::pdb::TpiStreamBuilder* _ipiBuilder; 
     llvm::codeview::DebugStringTableSubsection* _strings;
-    llvm::pdb::GSIStreamBuilder* _gsiBuilder;
     llvm::codeview::GlobalTypeTableBuilder* _typeBuilder;
-
-    std::shared_ptr<llvm::codeview::DebugChecksumsSubsection> _checksums;
+    llvm::msf::MSFBuilder* _msfBuilder;
     llvm::pdb::DbiModuleDescriptorBuilder* _module;
+    llvm::pdb::DbiStreamBuilder* _dbiBuilder;
+    llvm::pdb::GSIStreamBuilder* _gsiBuilder;
+    llvm::pdb::InfoStreamBuilder* _infoBuilder;
+    llvm::pdb::PDBFileBuilder* _builder;
+    llvm::pdb::TpiStreamBuilder* _ipiBuilder; 
+    llvm::pdb::TpiStreamBuilder* _tpiBuilder; 
+    std::shared_ptr<llvm::codeview::DebugChecksumsSubsection> _checksums;
 };
