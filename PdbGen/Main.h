@@ -1,9 +1,13 @@
 #pragma once
 
 #include <llvm/DebugInfo/CodeView/TypeIndex.h>
+#include <llvm/DebugInfo/CodeView/SymbolSerializer.h>
+#include <llvm/Support/Allocator.h>
+#include <llvm/Support/Error.h>
 
-namespace llvm::pdb { class DbiModuleDescriptorBuilder; class DbiStreamBuilder; class GSIStreamBuilder; class TpiStreamBuilder; }
+namespace llvm::pdb { class DbiModuleDescriptorBuilder; class DbiStreamBuilder; class GSIStreamBuilder; class TpiStreamBuilder; class PDBFileBuilder; class InfoStreamBuilder; }
 namespace llvm::codeview { class DebugChecksumsSubsection; class DebugStringTableSubsection; class GlobalTypeTableBuilder; }
+namespace llvm::msf { class MSFBuilder; }
 
 struct Local {
     int32_t offset; // Offset from EBP (I think)
@@ -28,20 +32,33 @@ struct Function {
     std::string properName;
     std::string nickName;
     std::string filename;
-} fooFunction, mainFunction;
+};
 
 class Main {
 public:
-    void GeneratePDB(const char* outputFileName);
+    Main(const std::string& inputExe);
+    void GeneratePDB(const std::string& outputFileName, const Function& fooFunction, const Function& mainFunction);
     void AddFunction(const Function& function);
 
 private:
-    llvm::pdb::DbiModuleDescriptorBuilder* _module;
-    llvm::pdb::DbiStreamBuilder* _dbiBuilder;
-    llvm::pdb::GSIStreamBuilder* _gsiBuilder;
-    llvm::pdb::TpiStreamBuilder* _tpiBuilder; 
+    template <typename SymType>
+    llvm::codeview::CVSymbol CreateSymbol(SymType& sym) {
+        return llvm::codeview::SymbolSerializer::writeOneSymbol(sym, _allocator, CodeViewContainer::Pdb);
+    }
 
-    llvm::codeview::GlobalTypeTableBuilder* _typeBuilder;
+    llvm::BumpPtrAllocator _allocator;
+    llvm::ExitOnError ExitOnErr;
+
+    llvm::pdb::PDBFileBuilder* _builder;
+    llvm::msf::MSFBuilder* _msfBuilder;
+    llvm::pdb::InfoStreamBuilder* _infoBuilder;
+    llvm::pdb::DbiStreamBuilder* _dbiBuilder;
+    llvm::pdb::TpiStreamBuilder* _tpiBuilder; 
+    llvm::pdb::TpiStreamBuilder* _ipiBuilder; 
     llvm::codeview::DebugStringTableSubsection* _strings;
+    llvm::pdb::GSIStreamBuilder* _gsiBuilder;
+    llvm::codeview::GlobalTypeTableBuilder* _typeBuilder;
+
     std::shared_ptr<llvm::codeview::DebugChecksumsSubsection> _checksums;
+    llvm::pdb::DbiModuleDescriptorBuilder* _module;
 };
