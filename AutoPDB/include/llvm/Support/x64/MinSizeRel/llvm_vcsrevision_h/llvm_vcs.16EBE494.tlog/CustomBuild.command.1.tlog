@@ -1,0 +1,28 @@
+^C:\USERS\LOCALHOST\DOCUMENTS\GITHUB\LLVM-PROJECT\BUILD\CMAKEFILES\3F20A402929EF51769DA4254A3BC27EC\VCSREVISION.H.RULE
+setlocal
+"C:\Program Files (x86)\Microsoft Visual Studio\2019\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\bin\cmake.exe" -DNAMES=LLVM -DLLVM_SOURCE_DIR=C:/Users/localhost/Documents/GitHub/llvm-project/llvm -DHEADER_FILE=C:/Users/localhost/Documents/GitHub/llvm-project/build/include/llvm/Support/VCSRevision.h -P C:/Users/localhost/Documents/GitHub/llvm-project/llvm/cmake/modules/GenerateVersionFromVCS.cmake
+if %errorlevel% neq 0 goto :cmEnd
+:cmEnd
+endlocal & call :cmErrorLevel %errorlevel% & goto :cmDone
+:cmErrorLevel
+exit /b %1
+:cmDone
+if %errorlevel% neq 0 goto :VCEnd
+^C:\USERS\LOCALHOST\DOCUMENTS\GITHUB\LLVM-PROJECT\BUILD\CMAKEFILES\8FDBD93A9240884CD56A3352A74F6CD3\LLVM_VCSREVISION_H.RULE
+setlocal
+:cmEnd
+endlocal & call :cmErrorLevel %errorlevel% & goto :cmDone
+:cmErrorLevel
+exit /b %1
+:cmDone
+if %errorlevel% neq 0 goto :VCEnd
+^C:\USERS\LOCALHOST\DOCUMENTS\GITHUB\LLVM-PROJECT\LLVM\INCLUDE\LLVM\SUPPORT\CMAKELISTS.TXT
+setlocal
+"C:\Program Files (x86)\Microsoft Visual Studio\2019\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\bin\cmake.exe" -SC:/Users/localhost/Documents/GitHub/llvm-project/llvm -BC:/Users/localhost/Documents/GitHub/llvm-project/build --check-stamp-file C:/Users/localhost/Documents/GitHub/llvm-project/build/include/llvm/Support/CMakeFiles/generate.stamp
+if %errorlevel% neq 0 goto :cmEnd
+:cmEnd
+endlocal & call :cmErrorLevel %errorlevel% & goto :cmDone
+:cmErrorLevel
+exit /b %1
+:cmDone
+if %errorlevel% neq 0 goto :VCEnd

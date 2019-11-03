@@ -1,0 +1,48 @@
+^C:\USERS\LOCALHOST\DOCUMENTS\GITHUB\LLVM-PROJECT\BUILD\CMAKEFILES\DA1F8FCBB2B0ECA6EE85A5A1595BE01C\ATTRIBUTES.INC.RULE
+setlocal
+..\..\..\MinSizeRel\bin\llvm-tblgen.exe -gen-attrs -I C:/Users/localhost/Documents/GitHub/llvm-project/llvm/include/llvm/IR -I C:/Users/localhost/Documents/GitHub/llvm-project/llvm/include C:/Users/localhost/Documents/GitHub/llvm-project/llvm/include/llvm/IR/Attributes.td -o C:/Users/localhost/Documents/GitHub/llvm-project/build/include/llvm/IR/Attributes.inc
+if %errorlevel% neq 0 goto :cmEnd
+:cmEnd
+endlocal & call :cmErrorLevel %errorlevel% & goto :cmDone
+:cmErrorLevel
+exit /b %1
+:cmDone
+if %errorlevel% neq 0 goto :VCEnd
+^C:\USERS\LOCALHOST\DOCUMENTS\GITHUB\LLVM-PROJECT\BUILD\CMAKEFILES\DA1F8FCBB2B0ECA6EE85A5A1595BE01C\INTRINSICENUMS.INC.RULE
+setlocal
+..\..\..\MinSizeRel\bin\llvm-tblgen.exe -gen-intrinsic-enums -I C:/Users/localhost/Documents/GitHub/llvm-project/llvm/include/llvm/IR -I C:/Users/localhost/Documents/GitHub/llvm-project/llvm/include C:/Users/localhost/Documents/GitHub/llvm-project/llvm/include/llvm/IR/Intrinsics.td -o C:/Users/localhost/Documents/GitHub/llvm-project/build/include/llvm/IR/IntrinsicEnums.inc
+if %errorlevel% neq 0 goto :cmEnd
+:cmEnd
+endlocal & call :cmErrorLevel %errorlevel% & goto :cmDone
+:cmErrorLevel
+exit /b %1
+:cmDone
+if %errorlevel% neq 0 goto :VCEnd
+^C:\USERS\LOCALHOST\DOCUMENTS\GITHUB\LLVM-PROJECT\BUILD\CMAKEFILES\DA1F8FCBB2B0ECA6EE85A5A1595BE01C\INTRINSICIMPL.INC.RULE
+setlocal
+..\..\..\MinSizeRel\bin\llvm-tblgen.exe -gen-intrinsic-impl -I C:/Users/localhost/Documents/GitHub/llvm-project/llvm/include/llvm/IR -I C:/Users/localhost/Documents/GitHub/llvm-project/llvm/include C:/Users/localhost/Documents/GitHub/llvm-project/llvm/include/llvm/IR/Intrinsics.td -o C:/Users/localhost/Documents/GitHub/llvm-project/build/include/llvm/IR/IntrinsicImpl.inc
+if %errorlevel% neq 0 goto :cmEnd
+:cmEnd
+endlocal & call :cmErrorLevel %errorlevel% & goto :cmDone
+:cmErrorLevel
+exit /b %1
+:cmDone
+if %errorlevel% neq 0 goto :VCEnd
+^C:\USERS\LOCALHOST\DOCUMENTS\GITHUB\LLVM-PROJECT\BUILD\CMAKEFILES\C85027067979D89D17A77684ED343BCE\INTRINSICS_GEN.RULE
+setlocal
+:cmEnd
+endlocal & call :cmErrorLevel %errorlevel% & goto :cmDone
+:cmErrorLevel
+exit /b %1
+:cmDone
+if %errorlevel% neq 0 goto :VCEnd
+^C:\USERS\LOCALHOST\DOCUMENTS\GITHUB\LLVM-PROJECT\LLVM\INCLUDE\LLVM\IR\CMAKELISTS.TXT
+setlocal
+"C:\Program Files (x86)\Microsoft Visual Studio\2019\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\bin\cmake.exe" -SC:/Users/localhost/Documents/GitHub/llvm-project/llvm -BC:/Users/localhost/Documents/GitHub/llvm-project/build --check-stamp-file C:/Users/localhost/Documents/GitHub/llvm-project/build/include/llvm/IR/CMakeFiles/generate.stamp
+if %errorlevel% neq 0 goto :cmEnd
+:cmEnd
+endlocal & call :cmErrorLevel %errorlevel% & goto :cmDone
+:cmErrorLevel
+exit /b %1
+:cmDone
+if %errorlevel% neq 0 goto :VCEnd

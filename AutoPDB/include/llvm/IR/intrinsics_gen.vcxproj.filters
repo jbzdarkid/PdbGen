@@ -1,0 +1,26 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="16.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <CustomBuild Include="C:\Users\localhost\Documents\GitHub\llvm-project\build\CMakeFiles\da1f8fcbb2b0eca6ee85a5a1595be01c\Attributes.inc.rule">
+      <Filter>CMake Rules</Filter>
+    </CustomBuild>
+    <CustomBuild Include="C:\Users\localhost\Documents\GitHub\llvm-project\build\CMakeFiles\da1f8fcbb2b0eca6ee85a5a1595be01c\IntrinsicEnums.inc.rule">
+      <Filter>CMake Rules</Filter>
+    </CustomBuild>
+    <CustomBuild Include="C:\Users\localhost\Documents\GitHub\llvm-project\build\CMakeFiles\da1f8fcbb2b0eca6ee85a5a1595be01c\IntrinsicImpl.inc.rule">
+      <Filter>CMake Rules</Filter>
+    </CustomBuild>
+    <CustomBuild Include="C:\Users\localhost\Documents\GitHub\llvm-project\build\CMakeFiles\c85027067979d89d17a77684ed343bce\intrinsics_gen.rule">
+      <Filter>CMake Rules</Filter>
+    </CustomBuild>
+    <CustomBuild Include="C:\Users\localhost\Documents\GitHub\llvm-project\llvm\include\llvm\IR\CMakeLists.txt" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="C:\Users\localhost\Documents\GitHub\llvm-project\build\include\llvm\IR\CMakeFiles\intrinsics_gen" />
+  </ItemGroup>
+  <ItemGroup>
+    <Filter Include="CMake Rules">
+      <UniqueIdentifier>{2E7FBF14-EFCA-3778-A0D2-584FD1C3D94C}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+</Project>
