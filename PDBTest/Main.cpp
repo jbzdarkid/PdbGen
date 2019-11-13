@@ -1,22 +1,20 @@
-/*
-    Some large block comment. Obviously not required in a generated file...
-
-*/
-
-int foo(int bar) {
-    bar += 5;
-    bar *= 6;
-    bar -= 7;
-    bar /= 8;
-    return bar;
-}
-
 int main() {
     int a = 1;
-    a += foo(5);
-    a++;
-    a *= 2;
-    a -= 3;
-    a /= 4;
-    return a;
+    int b = 2;
+    int c = 3;
+    int d = 4;
+    int e = 5;
+    int f = 6;
+    int g = 7;
+    int h = 8;
+    int i = 9;
+    int j = 10;
+    a = b + c;
+    b = c - d;
+    c = d * e;
+    d = e / f;
+    e = f % g;
+    f = g ^ h;
+    g = h & i;
+    h = i | j;
 }
