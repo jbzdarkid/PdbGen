@@ -416,14 +416,13 @@ class Parser:
   
   def parse_function(self):
     self.addr = self.unparsed_functions.pop(0)
-    self._print(f'\nFunction {self.functions[self.addr]} at address {hex(self.addr)}')
+    self._print('')
+    self._print(f'Function {self.functions[self.addr]} at address {hex(self.addr)}')
   
     while 1:
-      if self.addr in self.scopes:
-        while self.scopes[self.addr] > 0:
-          self.scopes[self.addr] -= 1
-          self._print('}')
-        del self.scopes[self.addr]
+      while self.get_scope_closure_count() > 0:
+        self.scopes[self.addr] -= 1
+        self._print('}')
     
       byte = self.read_byte()
       
