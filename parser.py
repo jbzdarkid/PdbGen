@@ -30,7 +30,7 @@ def test1():
 
     0x55, # push ebp
     0x8B, 0xEC, # mov ebp, esp
-    0xE8, 0xB8, 0xFF, 0xFF, 0xFF, # call foo()
+    0xE8, 0xB8, 0xFF, 0xFF, 0xFF, # call Parser()
     0xE8, 0xD3, 0xFF, 0xFF, 0xFF, # call bar()
     0x33, 0xC0, # xor eax, eax
     0x5D, # pop ebp
@@ -39,8 +39,8 @@ def test1():
     0xCC, # int3
     0xCC, # int3
   ]
-  foo = Foo(bytes)
-  foo.parse(0x40)
+  Parser = Parser(bytes)
+  Parser.parse(0x40)
 
 def test2():
   bytes = [
@@ -88,7 +88,7 @@ def test2():
     0x5D, # pop ebp
     0xC3, # ret
   ]
-  Foo(bytes).parse(0)
+  Parser(bytes).parse(0)
   
 def test3():
   bytes = [
@@ -122,7 +122,7 @@ def test3():
     0x5D, # pop ebp
     0xC3, # ret
   ]
-  Foo(bytes).parse(0)
+  Parser(bytes).parse(0)
 
 def test4():
   bytes = [
@@ -164,17 +164,21 @@ def test4():
     0x5D, # pop ebp
     0xC3, # ret
   ]
-  Foo(bytes).parse(0x20)
+  Parser(bytes).parse(0x20)
+
+class Function:
+  def __init__(self):
+    pass
     
   
-class Foo:
+
+class Parser:
   def __init__(self, bytes):
     self.print_bytes = False
     self.ebp_esp = 0 # Value of ebp - esp
     self.bytes = bytes
     self.functions = {}
     self.unparsed_functions = []
-    self.pending_jumps = {}
     self.flags = {}
     self.scopes = {}
     
@@ -233,73 +237,55 @@ class Foo:
   # Re: Jumps
   # The terms "less" and "greater" are used for comparisons of signed integers and the terms "above" and "below" are used for unsigned integers.
 
+  def set_flags(self, dst, src):
+    self.flags = {
+      'ZF':  f'{dst} == {src}',
+      '!ZF': f'{dst} != {src}',
+      'SF':  f'{dst} <= {src}',
+      '!SF': f'{dst} > {src}',
+    }
+  
   def sub(self, dst, src):
     self._print(f'{dst} -= {src}')
-    self.flags = {
-      'ZF': f'{dst} == 0',
-      'SF': f'{dst} < 0'
-    }
+    self.set_flags(dst, '0')
 
   def add(self, dst, src):
     self._print(f'{dst} += {src}')
-    self.flags = {
-      'ZF': f'{dst} == 0'
-    }
+    self.set_flags(dst, '0')
 
   def mul(self, dst, src):
     self._print(f'{dst} *= {src}')
-    self.flags = {
-      'ZF': f'{dst} == 0',
-      'SF': f'{dst} < 0'
-    }
+    self.set_flags(dst, '0')
 
   def xor(self, dst, src):
     if dst == src:
       self.mov(dst, '0')
     else:
       self._print(f'{dst} ^= {src}')
-    self.flags = {
-      'ZF': f'{dst} == 0',
-      'SF': f'{dst} < 0'
-    }
+    self.set_flags(dst, '0')
     
   def _and(self, dst, src):
     if src == 0:
       self.mov(dst, '0')
     else:
       self._print(f'{dst} &= {hex(src)}')
-    self.flags = {
-      'ZF': f'{dst} == 0',
-      'SF': f'{dst} < 0'
-    }
+    self.set_flags(dst, '0')
 
   def _or(self, dst, src):
     if src == 0xFF:
       self.mov(dst, '-1')
     else:
       self._print(f'{dst} |= {src}')
-    self.flags = {
-      'ZF': f'{dst} == 0',
-      '!ZF': f'{dst} != 0',
-      'SF': f'{dst} <= 0',
-      '!SF': f'{dst} > 0'
-    }
-    
+    self.set_flags(dst, '0')
+
   # Both test eax, eax and cmp eax, eax will set SF=1 if eax < 0
   def cmp(self, dst, src):
     # self._print(f'cmp {dst}, {src}')
-    self.flags = {
-      'ZF': f'{dst} == {src}',
-      '!ZF': f'{dst} != {src}',
-      'SF': f'{dst} <= {src}',
-      '!SF': f'{dst} > {src}'
-    }
+    self.set_flags(dst, src)
     
   def test(self, dst, src):
     self._print(f'test {dst}, {src}')
-    self.flags = {
-      'ZF': f'{dst} == {src}'
-    }
+    self.set_flags(dst, src)
   
   def dec(self, dst):
     self.sub(dst, '1')
@@ -349,31 +335,46 @@ class Foo:
     
   def shl(self, dst, amt):
     self.mov(dst, f'{dst} * {2 ** amt}')
-  
-  def jump(self, cond, amt):
-    assert(amt > 0) # TODO: Handle loops (aka backwards jumps)
-    self.pending_jumps[self.addr + amt] = True
-    if cond is not None:
-      # self._print(f'if ({cond}) ' + '{')
-      pass
+
+  def add_scope_closure(self, addr):
+    if addr not in self.scopes:
+      self.scopes[addr] = 1
     else:
-      # self._print('} else {')
-      pass
+      self.scopes[addr] += 1
     
-    if cond is not None:
-      # self._print(f'if ({cond}) goto label_{self.addr + amt}')
-      self._print(f'if (!({cond})) ' + '{')
-      if (self.addr + amt) not in self.scopes:
-        self.scopes[self.addr + amt] = 0
-      self.scopes[self.addr + amt] += 1
-    else:
-      if self.addr in self.scopes:
-        # We need to pre-empt the label from being created, and re-open another scope
-        del self.scopes[self.addr]
+  def get_scope_closure_count(self):
+    if self.addr not in self.scopes:
+      return 0
+    return self.scopes[self.addr]
+
+  def jump(self, cond, amt):
+    if amt > 0:
+      if cond == 'jmp':
+        # We need to drain scopes here, since the jump is *before* the label is created.
+        # There might be a way to mark the label so that the next closure adds an else?
+        # TODO: Handle multiple closing scopes at this depth. It's nontrivial.
+        assert(self.get_scope_closure_count() == 1)
+        self.scopes[self.addr] -= 1
         self._print('} else {')
-        if (self.addr + amt) not in self.scopes:
-          self.scopes[self.addr + amt] = 0
-        self.scopes[self.addr + amt] += 1
+        self.add_scope_closure(self.addr + amt)
+        return
+      # Note: Conditions are inverted here, since that's how if blocks are formed.
+      elif cond == 'je':
+        flags = self.flags['!ZF']
+      elif cond == 'jne':
+        flags = self.flags['ZF']
+      elif cond == 'jge':
+        flags = self.flags['SF'] + ' && ' + self.flags['!ZF']
+      elif cond == 'jle':
+        flags = self.flags['!SF'] + ' && ' + self.flags['!ZF']
+      elif cond == 'jg':
+        flags = self.flags['SF']
+      
+      self._print(f'if ({flags}) {{')
+      self.add_scope_closure(self.addr + amt)
+
+    else: # amt < 0, looping. TODO.
+      assert(False)
   
   def parse(self, start_addr):
     name = 'func%04d' % len(self.functions)
@@ -467,20 +468,20 @@ class Foo:
       elif byte == 0x68:
         self.push(self.read_unsigned_int())
 
-      elif byte == 0x74: # je
-        self.jump(f'{self.flags["ZF"]}', self.read_signed_byte())
+      elif byte == 0x74:
+        self.jump('je', self.read_signed_byte())
 
-      elif byte == 0x75: # jne
-        self.jump(f'{self.flags["!ZF"]}', self.read_signed_byte())
+      elif byte == 0x75:
+        self.jump('jne', self.read_signed_byte())
 
-      elif byte == 0x7D: # jge
-        self.jump(f'{self.flags["!SF"]} || {self.flags["ZF"]}', self.read_signed_byte())
+      elif byte == 0x7D:
+        self.jump('jge', self.read_signed_byte())
 
-      elif byte == 0x7E: # jle
-        self.jump(f'{self.flags["SF"]} || {self.flags["ZF"]}', self.read_signed_byte())
+      elif byte == 0x7E:
+        self.jump('jle', self.read_signed_byte())
 
-      elif byte == 0x7F: # jg
-        self.jump(f'{self.flags["!SF"]}', self.read_signed_byte())
+      elif byte == 0x7F:
+        self.jump('jg', self.read_signed_byte())
 
       elif byte == 0x83:
         byte = self.read_byte()
@@ -540,8 +541,8 @@ class Foo:
         relative_addr = self.read_signed_int()
         self.call(self.addr + relative_addr) # Relative to the next call, so evaluate after reading
       
-      elif byte == 0xEB: # jmp
-        self.jump(None, self.read_signed_byte())
+      elif byte == 0xEB:
+        self.jump('jmp', self.read_signed_byte())
       
       elif byte == 0xF7:
         if self.read_byte() == 0x7D:
@@ -553,4 +554,4 @@ class Foo:
     
   
 if __name__ == '__main__':
-  test3()
+  test4()
