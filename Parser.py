@@ -7,20 +7,71 @@ class Function:
   def add_line(self, addr):
     self.lines.append(Line(addr))
 
+  def postproc(self):
+    scope_closures = []
+    i = -1
+    while i < len(self.lines) - 1:
+      # @Hack. Bad iteration.
+      i += 1
+      cmp_line = self.lines[i-1]
+      jmp_line = self.lines[i]
+
+      if len(scope_closures) > 0 and scope_closures[-1] == jmp_line.addr:
+        scope_closures.pop()
+      jmp_line.indent = len(scope_closures)
+
+      if cmp_line.type == 'cmp' and jmp_line.type == 'jmp':
+        if jmp_line.cond == None:
+          continue
+        if len(scope_closures) > 0 and jmp_line.target > scope_closures[-1]:
+          continue # Scopes cannot overlap, so leave this instruction as a jump.
+        assert(jmp_line.target > jmp_line.addr) # TODO: Loops
+
+        index = None
+        for j, line in enumerate(self.lines):
+          if line.addr == jmp_line.target:
+            index = j
+            break
+        if index == None:
+          # Jump goes outside this function, ignore it.
+          continue
+
+        # Insert a line which doesn't really have an address. Or something.
+        line = Line(jmp_line.target)
+        line.comment = '}'
+        self.lines.insert(index, line)
+        scope_closures.append(jmp_line.target)
+
+        # @Hack: I don't think I want a multiline here, I think I want an extra line, just one that doesn't have an associated address.
+        # Be caution about ^, because there may need to be multiple closures.
+        # target_line.comment = '}\n// ' + target_line.comment
+        # scope_closures.append(jmp_line.target)
+
+        dst, src = cmp_line.flags
+        # Negate the actual jump condition
+        cond = {'==': '!=', '!=':'==', '<':'>=', '<=':'>', '>=':'<', '>':'<='}[jmp_line.cond]
+        cmp_line.comment = ''
+        jmp_line.comment = f'if ({dst} {cond} {src}) {{'
+
+
   def print_out(self):
     print('')
     print(f'Function {self.name} at address {hex(self.addr)}')
     for line in self.lines:
       line.print_out()
 
+TAB_SIZE = 2
 class Line:
   def __init__(self, addr):
     self.addr = addr
     self.comment = ''
+    self.type = ''
+    self.indent = 0
 
-  def print_out(self, indent=0):
-    print('// ' + '  ' * indent, end='')
-    print(self.comment)
+  def print_out(self):
+    if self.comment:
+      # print(str(self.addr) + '\t', end='')
+      print('// ' + ' ' * self.indent * TAB_SIZE + self.comment)
 
 class Parser:
   def __init__(self, bytes):
@@ -30,7 +81,7 @@ class Parser:
     self.functions = {}
     self.unparsed_functions = []
     self.flags = {}
-    self.pending_jumps = []
+    self.pending_jumps = set()
 
   def print_out(self):
     for addr in sorted(self.functions.keys()):
@@ -94,63 +145,54 @@ class Parser:
   # Re: Jumps
   # The terms "less" and "greater" are used for comparisons of signed integers and the terms "above" and "below" are used for unsigned integers.
 
-  def set_flags(self, dst, src):
-    self.flags = {
-      'ZF':  f'{dst} == {src}',
-      '!ZF': f'{dst} != {src}',
-      'SF':  f'{dst} <= {src}',
-      '!SF': f'{dst} > {src}',
-    }
-
   def sub(self, dst, src):
     self._print(f'{dst} -= {src}')
-    self.set_flags(dst, '0')
+    self.active_func.lines[-1].flags = (dst, '0')
 
   def add(self, dst, src):
     self._print(f'{dst} += {src}')
-    self.set_flags(dst, '0')
+    self.active_func.lines[-1].flags = (dst, '0')
 
   def mul(self, dst, src):
     self._print(f'{dst} *= {src}')
-    self.set_flags(dst, '0')
+    self.active_func.lines[-1].flags = (dst, '0')
 
   def xor(self, dst, src):
     if dst == src:
       self.mov(dst, '0')
     else:
       self._print(f'{dst} ^= {src}')
-    self.set_flags(dst, '0')
+    self.active_func.lines[-1].flags = (dst, '0')
 
   def _and(self, dst, src):
     if src == 0:
       self.mov(dst, '0')
     else:
       self._print(f'{dst} &= {hex(src)}')
-    self.set_flags(dst, '0')
+    self.active_func.lines[-1].flags = (dst, '0')
 
   def _or(self, dst, src):
     if src == 0xFF:
       self.mov(dst, '-1')
     else:
       self._print(f'{dst} |= {src}')
-    self.set_flags(dst, '0')
+    self.active_func.lines[-1].flags = (dst, '0')
 
   # Both test eax, eax and cmp eax, eax will set SF=1 if eax < 0
   def cmp(self, dst, src):
-    # self._print(f'cmp {dst}, {src}')
-    self.set_flags(dst, src)
+    self._print(f'cmp {dst}, {src}')
+    self.active_func.lines[-1].type = 'cmp'
+    self.active_func.lines[-1].flags = (dst, src)
 
   def test(self, dst, src):
     self._print(f'test {dst}, {src}')
-    self.set_flags(dst, src)
+    self.active_func.lines[-1].flags = (dst, src)
 
   def dec(self, dst):
     self.sub(dst, '1')
 
   def inc(self, dst):
     self.add(dst, '1')
-
-  ### These ones do not
 
   def div(self, src):
     self._print(f'edx = eax % {src}; eax = eax / {src}')
@@ -192,27 +234,35 @@ class Parser:
     self.mov(dst, f'{dst} * {2 ** amt}')
 
   def jump(self, cond, amt):
-    assert(amt > 0)
-    if cond == 'jmp':
-      self._print(f'goto {self.addr + amt}')
-      return
-    elif cond == 'je':
-      self._print(f'if ({self.flags["ZF"]}) goto {self.addr + amt}')
-    elif cond == 'jne':
-      self._print(f'if ({self.flags["!ZF"]}) goto {self.addr + amt}')
-    elif cond == 'jge':
-      self._print(f'if ({self.flags["!SF"]} || {self.flags["ZF"]}) goto {self.addr + amt}')
-    elif cond == 'jle':
-      self._print(f'if ({self.flags["SF"]} || {self.flags["ZF"]}) goto {self.addr + amt}')
-    elif cond == 'jg':
-      self._print(f'if ({self.flags["!SF"]}) goto {self.addr + amt}')
+    target = self.addr + amt
+    self._print(f'{cond} {target}')
+    self.active_func.lines[-1].type = 'jmp'
+    self.active_func.lines[-1].target = target
+    self.active_func.lines[-1].cond = {
+      'je': '==',
+      'jne': '!=',
+      'jl': '<',
+      'jle': '<=',
+      'jge': '>=',
+      'jg': '>',
+      'jmp': None,
+    }[cond]
 
-    self.pending_jumps.append(self.addr + amt)
+    if amt > 0:
+      # Jump to (potentially) later in this function
+      self.pending_jumps.add(target)
+    elif target < self.active_func.addr:
+      # Jump to before this function, indicates another function
+      self.add_function(target)
+    else:
+      # Jump to earlier in this function
+      pass
 
   def parse(self, start_addr):
     self.add_function(start_addr)
     while 1:
       self.parse_function()
+      self.active_func.postproc()
       if len(self.unparsed_functions) == 0:
         break
 
@@ -251,6 +301,10 @@ class Parser:
 
     while 1:
       self.active_func.add_line(self.addr)
+      # Jumps which land inside the same function
+      if self.addr in self.pending_jumps:
+        self.pending_jumps.remove(self.addr)
+
       byte = self.read_byte()
 
       if byte == 0x03:
@@ -335,7 +389,7 @@ class Parser:
         if byte == 0x04:
           byte = self.read_byte()
           if byte == 0x80:
-            self.mov('eax', 'eax + eax*4')
+            self.mov('eax', 'eax + 4 * eax')
         elif byte == 0x4E:
           self.mov('ecx', f'esi + {self.read_signed_byte()}')
 

@@ -174,4 +174,4 @@ def test4():
   parser.print_out()
 
 if __name__ == '__main__':
-  test4()
+  test3()
