@@ -7,58 +7,145 @@ class Function:
   def add_line(self, addr):
     self.lines.append(Line(addr))
 
+  def get_index_for_addr(self, addr):
+    for i, line in enumerate(self.lines):
+      if line.addr == addr:
+        return i
+    return None
+  
+  # @Cleanup: I want a boolean closes_scope and opens_scope on the Line class.
+  def interleaves_scope(self, start, end):
+    scope_count = 0
+    for line in self.lines[start:end]:
+      if line.type == 'scope_end' or line.type == 'else' or line.type == 'elseif':
+        if scope_count == 0:
+          return True # Attempting to close a scope which was opened before start
+        scope_count -= 1
+      if line.type == 'if' or line.type == 'else' or line.type == 'elseif':
+        scope_count += 1
+    return scope_count != 0
+
   def postproc(self):
-    scope_closures = []
-    i = -1
-    while i < len(self.lines) - 1:
-      # @Hack. Bad iteration.
-      i += 1
+    self.postproc_simpleif()
+    self.postproc_mergeif()
+    self.postproc_else()
+    self.postproc_elseif()
+
+  # @Bug: Ideally this symbol should bind to the cmp instruction, that's how VS does it.
+  # @Audit: Ensure that all of these postprocs are not shifted.
+  def postproc_simpleif(self):
+    # This is required so I can have modifiable for loops.
+    i = 0
+    while i < len(self.lines):
       cmp_line = self.lines[i-1]
       jmp_line = self.lines[i]
-
-      if len(scope_closures) > 0 and scope_closures[-1] == jmp_line.addr:
-        scope_closures.pop()
-      jmp_line.indent = len(scope_closures)
+      i += 1
 
       if cmp_line.type == 'cmp' and jmp_line.type == 'jmp':
         if jmp_line.cond == None:
           continue
-        if len(scope_closures) > 0 and jmp_line.target > scope_closures[-1]:
-          continue # Scopes cannot overlap, so leave this instruction as a jump.
-        assert(jmp_line.target > jmp_line.addr) # TODO: Loops
-
-        index = None
-        for j, line in enumerate(self.lines):
-          if line.addr == jmp_line.target:
-            index = j
-            break
+        index = self.get_index_for_addr(jmp_line.target)
         if index == None:
           # Jump goes outside this function, ignore it.
           continue
+        if self.interleaves_scope(i, index):
+          continue # Scopes cannot overlap
+        assert(jmp_line.target > jmp_line.addr) # TODO: Loops
 
         # Insert a line which doesn't really have an address. Or something.
         line = Line(jmp_line.target)
         line.comment = '}'
+        line.type = 'scope_end'
         self.lines.insert(index, line)
-        scope_closures.append(jmp_line.target)
-
-        # @Hack: I don't think I want a multiline here, I think I want an extra line, just one that doesn't have an associated address.
-        # Be caution about ^, because there may need to be multiple closures.
-        # target_line.comment = '}\n// ' + target_line.comment
-        # scope_closures.append(jmp_line.target)
 
         dst, src = cmp_line.flags
         # Negate the actual jump condition
         cond = {'==': '!=', '!=':'==', '<':'>=', '<=':'>', '>=':'<', '>':'<='}[jmp_line.cond]
-        cmp_line.comment = ''
-        jmp_line.comment = f'if ({dst} {cond} {src}) {{'
+        jmp_line.cond = f'({dst} {cond} {src})'
+        jmp_line.type = 'if'
 
+        self.lines.pop(i-2)
+        i -= 1
+
+  def postproc_mergeif(self):
+    i = 0
+    while i < len(self.lines):
+      line1 = self.lines[i-1]
+      line2 = self.lines[i]
+      i += 1
+
+      if line1.type == 'if' and line2.type == 'if' and line1.target == line2.target:
+        index = self.get_index_for_addr(line1.target)
+        if index == None:
+          # Should be impossible, but if we can't find a scope end for this if, don't try and merge.
+          continue
+
+        self.lines.pop(index)
+        line1.cond = f'({line1.cond} && {line2.cond})'
+        self.lines.pop(i-1)
+        i -= 1
+
+  def postproc_else(self):
+    i = 0
+    while i < len(self.lines):
+      jmp_line = self.lines[i-1]
+      scp_line = self.lines[i]
+      i += 1
+      
+      if jmp_line.type == 'jmp' and scp_line.type == 'scope_end':
+        if jmp_line.target < jmp_line.addr:
+          continue # Not an `else` if it goes backwards
+        if jmp_line.cond != None:
+          continue # Must be an unconditional jump
+        
+        index = self.get_index_for_addr(jmp_line.target)
+        if index == None:
+          # Jump goes outside this function, ignore it.
+          continue
+
+        if self.interleaves_scope(i, index):
+          continue # `else` is not valid if it crosses over another scope.
+        
+        # Insert a line which doesn't really have an address. Or something.
+        line = Line(jmp_line.target)
+        line.comment = '}'
+        line.type = 'scope_end'
+        self.lines.insert(index, line)
+
+        jmp_line.type = 'else'
+        jmp_line.comment = '} else {'
+        self.lines.pop(i-1)
+        i -= 1
+        
+  def postproc_elseif(self):
+    i = 0
+    while i < len(self.lines):
+      else_line = self.lines[i-1]
+      if_line = self.lines[i]
+      i += 1
+
+      if else_line.type == 'else' and if_line.type == 'if' and else_line.target == if_line.target:
+        index = self.get_index_for_addr(else_line.target)
+        if index == None:
+          # Should be impossible, but if we can't find a scope_end for this else, don't bother doing anything.
+          continue
+
+        else_line.type = 'elseif'
+        else_line.comment = f'}} else if {if_line.cond} {{'
+        self.lines.pop(index)
+        self.lines.pop(i-1)
+        i -= 1
 
   def print_out(self):
     print('')
     print(f'Function {self.name} at address {hex(self.addr)}')
+    indent = 0
     for line in self.lines:
-      line.print_out()
+      if line.type == 'scope_end' or line.type == 'else' or line.type == 'elseif':
+        indent -= 1
+      line.print_out(indent)
+      if line.type == 'if' or line.type == 'else' or line.type == 'elseif':
+        indent += 1
 
 TAB_SIZE = 2
 class Line:
@@ -66,16 +153,21 @@ class Line:
     self.addr = addr
     self.comment = ''
     self.type = ''
-    self.indent = 0
 
-  def print_out(self):
-    if self.comment:
-      # print(str(self.addr) + '\t', end='')
-      print('// ' + ' ' * self.indent * TAB_SIZE + self.comment)
+  def print_out(self, indent):
+    # print(str(self.addr) + '\t', end='')
+    print(' ' * indent * TAB_SIZE, end='')
+    if self.type == 'if':
+      print(f'if {self.cond} {{')
+    else:
+      print(self.comment)
+      
+  def __str__(self):
+    return f'Line({self.addr}, {self.type}, {self.comment})'
 
 class Parser:
   def __init__(self, bytes):
-    self.print_bytes = False
+    self.print_bytes = False 
     self.ebp_esp = 0 # Value of ebp - esp
     self.bytes = bytes
     self.functions = {}
@@ -98,7 +190,7 @@ class Parser:
   def read_byte(self):
     byte = self.bytes[self.addr]
     if self.print_bytes:
-      self._print(hex(byte) + ', ', end='')
+      print(hex(byte) + ', ', end='')
     self.addr += 1
     return byte
 
@@ -113,7 +205,7 @@ class Parser:
     i = int.from_bytes(self.bytes[self.addr:self.addr+4], 'little')
     self.addr += 4
     if self.print_bytes:
-      self._print(hex(i) + ', ', end='')
+      print(hex(i) + ', ', end='')
     return i
 
   def read_signed_int(self):
@@ -287,7 +379,7 @@ class Parser:
     elif byte == 0xF1:
       dst, src = 'esi', 'ecx'
     else:
-      self._print('Failed to parse byte: ' + hex(byte))
+      print('Failed to parse byte: ' + hex(byte))
       exit(1)
 
     if not reversed:
@@ -377,7 +469,7 @@ class Parser:
           self.sub('esp', self.read_byte())
         elif byte == 0xFE:
           self.cmp('esi', self.read_byte())
-
+    
       elif byte == 0x89:
         self.mov(*self.read_registers(reversed=True))
 
@@ -435,5 +527,5 @@ class Parser:
           self.div(self.read_ebp_rel())
 
       else:
-        self._print('Failed to parse byte: ' + hex(byte))
+        print('Failed to parse byte: ' + hex(byte))
         exit(1)
