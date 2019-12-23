@@ -203,4 +203,4 @@ def test5():
   parser.print_out()
 
 if __name__ == '__main__':
-  test5()
+  test4()

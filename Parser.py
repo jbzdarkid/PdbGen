@@ -189,14 +189,16 @@ class Function:
 
   def print_out(self):
     print('')
-    print(f'Function {self.name} at address {hex(self.addr)}')
-    indent = 0
+    print(f'// Address {hex(self.addr)}')
+    print(f'void {self.name}() {{')
+    indent = 1
     for line in self.lines:
       if line.type == 'scope_end' or line.type == 'else' or line.type == 'elseif':
         indent -= 1
       line.print_out(indent)
       if line.type == 'if' or line.type == 'else' or line.type == 'elseif':
         indent += 1
+    print('}')
 
 TAB_SIZE = 2
 class Line:
@@ -289,8 +291,10 @@ class Parser:
   # The terms "less" and "greater" are used for comparisons of signed integers and the terms "above" and "below" are used for unsigned integers.
 
   def sub(self, dst, src):
+    print('-----', dst, src)
     self._print(f'{dst} -= {src}')
     self.active_func.lines[-1].flags = (dst, '0')
+    print(self.active_func.lines[-1])
 
   def add(self, dst, src):
     self._print(f'{dst} += {src}')
@@ -363,10 +367,12 @@ class Parser:
   def push(self, src):
     self.sub('esp', '4')
     self.ebp_esp -= 4
+    self.active_func.add_line(-1)
     self.mov('[esp]', src)
 
   def pop(self, src):
     self.mov(src, '[esp]')
+    self.active_func.add_line(-1)
     self.add('esp', '4')
     self.ebp_esp += 4
 
