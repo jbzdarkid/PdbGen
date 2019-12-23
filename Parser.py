@@ -1,3 +1,30 @@
+class Condition:
+  def __init__(self, a, cond, b):
+    self.a = a
+    self.cond = cond
+    self.b = b
+    
+  def neg(self):
+    if self.cond == '&&':
+      return Condition(self.a.neg(), '||', self.b.neg())
+    elif self.cond == '||':
+      return Condition(self.a.neg(), '&&', self.b.neg())
+    else:
+      cond_inv = {
+        '==': '!=',
+        '!=': '==',
+        '<': '>=',
+        '<=': '>',
+        '>=': '<',
+        '>': '<='
+      }[self.cond]
+      return Condition(self.a, cond_inv, self.b)
+
+  def __repr__(self):
+    return f'Condition({self.a}, {self.cond}, {self.b})'
+  def __str__(self):
+    return f'({self.a} {self.cond} {self.b})'
+
 class Function:
   def __init__(self, addr, name=''):
     self.addr = addr
@@ -15,26 +42,35 @@ class Function:
   
   # @Cleanup: I want a boolean closes_scope and opens_scope on the Line class.
   def interleaves_scope(self, start, end):
-    scope_count = 0
+    scope_depth = 0
     for line in self.lines[start:end]:
       if line.type == 'scope_end' or line.type == 'else' or line.type == 'elseif':
-        if scope_count == 0:
+        if scope_depth == 0:
           return True # Attempting to close a scope which was opened before start
-        scope_count -= 1
+        scope_depth -= 1
       if line.type == 'if' or line.type == 'else' or line.type == 'elseif':
-        scope_count += 1
-    return scope_count != 0
+        scope_depth += 1
+    return scope_depth != 0
 
   def postproc(self):
-    self.postproc_simpleif()
+    self.postproc_cmpreplace()
+    self.postproc_ifinversion()
     self.postproc_mergeif()
+    self.postproc_ifinversion()
     self.postproc_else()
     self.postproc_elseif()
 
+
+    # self.postproc_simpleif()
+    # self.postproc_mergeif()
+    # self.postproc_else()
+    # self.postproc_elseif()
+
   # @Bug: Ideally this symbol should bind to the cmp instruction, that's how VS does it.
   # @Audit: Ensure that all of these postprocs are not shifted.
-  def postproc_simpleif(self):
-    # This is required so I can have modifiable for loops.
+  # @Cleanup: Actual conditional logic, so negations do *something*.
+  
+  def postproc_cmpreplace(self):
     i = 0
     while i < len(self.lines):
       cmp_line = self.lines[i-1]
@@ -42,30 +78,44 @@ class Function:
       i += 1
 
       if cmp_line.type == 'cmp' and jmp_line.type == 'jmp':
-        if jmp_line.cond == None:
-          continue
-        index = self.get_index_for_addr(jmp_line.target)
-        if index == None:
-          # Jump goes outside this function, ignore it.
-          continue
-        if self.interleaves_scope(i, index):
-          continue # Scopes cannot overlap
-        assert(jmp_line.target > jmp_line.addr) # TODO: Loops
+        cmp_line.type = 'if'
+        dst, src = cmp_line.flags
+        cmp_line.cond = Condition(dst, jmp_line.cond, src)
+        target = self.lines[i].addr # @Bug: What if this if is at the end of a function?
+        cmp_line.target = target
 
-        # Insert a line which doesn't really have an address. Or something.
+        jmp_line.comment = f'goto {jmp_line.target}'
+ 
+        line = Line(-1)
+        line.comment = '}'
+        line.type = 'scope_end'
+        self.lines.insert(i, line)
+        
+  def postproc_ifinversion(self):
+    i = 0
+    while i < len(self.lines):
+      if_line = self.lines[i-2]
+      jmp_line = self.lines[i-1]
+      scp_line = self.lines[i]
+      i += 1
+      
+      if if_line.type == 'if' and jmp_line.type == 'jmp' and scp_line.type == 'scope_end':
+        index = self.get_index_for_addr(jmp_line.target)
+        if index is None:
+          continue # sanity
+        if self.interleaves_scope(i, index):
+          continue
+
+        if_line.target = jmp_line.target
+        if_line.cond = if_line.cond.neg()
+
         line = Line(jmp_line.target)
         line.comment = '}'
         line.type = 'scope_end'
         self.lines.insert(index, line)
 
-        dst, src = cmp_line.flags
-        # Negate the actual jump condition
-        cond = {'==': '!=', '!=':'==', '<':'>=', '<=':'>', '>=':'<', '>':'<='}[jmp_line.cond]
-        jmp_line.cond = f'({dst} {cond} {src})'
-        jmp_line.type = 'if'
-
-        self.lines.pop(i-2)
-        i -= 1
+        self.lines.pop(i-1) # scp_line
+        self.lines.pop(i-2) # jmp_line
 
   def postproc_mergeif(self):
     i = 0
@@ -74,6 +124,9 @@ class Function:
       line2 = self.lines[i]
       i += 1
 
+      if line1.type == 'if' and line2.type == 'if':
+        print(line1.target, line2.target)
+
       if line1.type == 'if' and line2.type == 'if' and line1.target == line2.target:
         index = self.get_index_for_addr(line1.target)
         if index == None:
@@ -81,10 +134,10 @@ class Function:
           continue
 
         self.lines.pop(index)
-        line1.cond = f'({line1.cond} && {line2.cond})'
+        line1.cond = Condition(line1.cond, '&&', line2.cond)
         self.lines.pop(i-1)
         i -= 1
-
+        
   def postproc_else(self):
     i = 0
     while i < len(self.lines):
@@ -100,11 +153,9 @@ class Function:
         
         index = self.get_index_for_addr(jmp_line.target)
         if index == None:
-          # Jump goes outside this function, ignore it.
-          continue
-
+          continue # Jump goes outside this function, ignore it.
         if self.interleaves_scope(i, index):
-          continue # `else` is not valid if it crosses over another scope.
+          continue
         
         # Insert a line which doesn't really have an address. Or something.
         line = Line(jmp_line.target)
@@ -123,18 +174,30 @@ class Function:
       else_line = self.lines[i-1]
       if_line = self.lines[i]
       i += 1
-
-      if else_line.type == 'else' and if_line.type == 'if' and else_line.target == if_line.target:
+      
+      if else_line.type == 'else' and if_line.type == 'if':
         index = self.get_index_for_addr(else_line.target)
         if index == None:
-          # Should be impossible, but if we can't find a scope_end for this else, don't bother doing anything.
+          continue # sanity
+
+        has_toplevel_code = False
+        scope_depth = 0
+        for line in self.lines[i:index]:
+          if line.type == 'if' or line.type == 'else' or line.type == 'elseif':
+            scope_depth += 1
+          elif scope_depth == 0:
+            has_toplevel_code = True
+            break
+          elif line.type == 'scope_end' or line.type == 'else' or line.type == 'elseif':
+            scope_depth -= 1
+        if has_toplevel_code:
           continue
 
         else_line.type = 'elseif'
+        # @Cleanup: We might need to merge ifs between elseif and if, so serializing this is bad?
         else_line.comment = f'}} else if {if_line.cond} {{'
         self.lines.pop(index)
         self.lines.pop(i-1)
-        i -= 1
 
   def print_out(self):
     print('')
