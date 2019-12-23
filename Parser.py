@@ -3,7 +3,7 @@ class Condition:
     self.a = a
     self.cond = cond
     self.b = b
-    
+
   def neg(self):
     if self.cond == '&&':
       return Condition(self.a.neg(), '||', self.b.neg())
@@ -39,7 +39,7 @@ class Function:
       if line.addr == addr:
         return i
     return None
-  
+
   # @Cleanup: I want a boolean closes_scope and opens_scope on the Line class.
   def interleaves_scope(self, start, end):
     scope_depth = 0
@@ -52,24 +52,15 @@ class Function:
         scope_depth += 1
     return scope_depth != 0
 
+  # @Audit: Ensure that all of these postprocs are issuing instructions at the first address.
   def postproc(self):
-    self.postproc_cmpreplace()
+    self.postproc_cmpreplace() # @Future: Use a tmp variable to ensure that all cmps are replaceable.
     self.postproc_ifinversion()
     self.postproc_mergeif()
     self.postproc_ifinversion()
     self.postproc_else()
     self.postproc_elseif()
 
-
-    # self.postproc_simpleif()
-    # self.postproc_mergeif()
-    # self.postproc_else()
-    # self.postproc_elseif()
-
-  # @Bug: Ideally this symbol should bind to the cmp instruction, that's how VS does it.
-  # @Audit: Ensure that all of these postprocs are not shifted.
-  # @Cleanup: Actual conditional logic, so negations do *something*.
-  
   def postproc_cmpreplace(self):
     i = 0
     while i < len(self.lines):
@@ -85,12 +76,12 @@ class Function:
         cmp_line.target = target
 
         jmp_line.comment = f'goto {jmp_line.target}'
- 
+
         line = Line(-1)
         line.comment = '}'
         line.type = 'scope_end'
         self.lines.insert(i, line)
-        
+
   def postproc_ifinversion(self):
     i = 0
     while i < len(self.lines):
@@ -98,7 +89,7 @@ class Function:
       jmp_line = self.lines[i-1]
       scp_line = self.lines[i]
       i += 1
-      
+
       if if_line.type == 'if' and jmp_line.type == 'jmp' and scp_line.type == 'scope_end':
         index = self.get_index_for_addr(jmp_line.target)
         if index is None:
@@ -124,9 +115,6 @@ class Function:
       line2 = self.lines[i]
       i += 1
 
-      if line1.type == 'if' and line2.type == 'if':
-        print(line1.target, line2.target)
-
       if line1.type == 'if' and line2.type == 'if' and line1.target == line2.target:
         index = self.get_index_for_addr(line1.target)
         if index == None:
@@ -137,26 +125,26 @@ class Function:
         line1.cond = Condition(line1.cond, '&&', line2.cond)
         self.lines.pop(i-1)
         i -= 1
-        
+
   def postproc_else(self):
     i = 0
     while i < len(self.lines):
       jmp_line = self.lines[i-1]
       scp_line = self.lines[i]
       i += 1
-      
+
       if jmp_line.type == 'jmp' and scp_line.type == 'scope_end':
         if jmp_line.target < jmp_line.addr:
           continue # Not an `else` if it goes backwards
         if jmp_line.cond != None:
           continue # Must be an unconditional jump
-        
+
         index = self.get_index_for_addr(jmp_line.target)
         if index == None:
           continue # Jump goes outside this function, ignore it.
         if self.interleaves_scope(i, index):
           continue
-        
+
         # Insert a line which doesn't really have an address. Or something.
         line = Line(jmp_line.target)
         line.comment = '}'
@@ -167,14 +155,14 @@ class Function:
         jmp_line.comment = '} else {'
         self.lines.pop(i-1)
         i -= 1
-        
+
   def postproc_elseif(self):
     i = 0
     while i < len(self.lines):
       else_line = self.lines[i-1]
       if_line = self.lines[i]
       i += 1
-      
+
       if else_line.type == 'else' and if_line.type == 'if':
         index = self.get_index_for_addr(else_line.target)
         if index == None:
@@ -182,7 +170,7 @@ class Function:
 
         has_toplevel_code = False
         scope_depth = 0
-        for line in self.lines[i:index]:
+        for line in self.lines[i-1:index]:
           if line.type == 'if' or line.type == 'else' or line.type == 'elseif':
             scope_depth += 1
           elif scope_depth == 0:
@@ -194,7 +182,7 @@ class Function:
           continue
 
         else_line.type = 'elseif'
-        # @Cleanup: We might need to merge ifs between elseif and if, so serializing this is bad?
+        # @Cleanup: We might need to merge ifs between elseif and if so, serializing this is bad.
         else_line.comment = f'}} else if {if_line.cond} {{'
         self.lines.pop(index)
         self.lines.pop(i-1)
@@ -224,13 +212,13 @@ class Line:
       print(f'if {self.cond} {{')
     else:
       print(self.comment)
-      
+
   def __str__(self):
     return f'Line({self.addr}, {self.type}, {self.comment})'
 
 class Parser:
   def __init__(self, bytes):
-    self.print_bytes = False 
+    self.print_bytes = False
     self.ebp_esp = 0 # Value of ebp - esp
     self.bytes = bytes
     self.functions = {}
@@ -532,7 +520,7 @@ class Parser:
           self.sub('esp', self.read_byte())
         elif byte == 0xFE:
           self.cmp('esi', self.read_byte())
-    
+
       elif byte == 0x89:
         self.mov(*self.read_registers(reversed=True))
 
