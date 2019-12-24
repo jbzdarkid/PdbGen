@@ -31,7 +31,8 @@ class Function:
     self.name = name
     self.lines = []
     self.vars = {}
-    self.input_vars = []
+    self.read_vars = set()
+    self.write_vars = set()
 
   def add_line(self, addr):
     self.lines.append(Line(addr))
@@ -55,13 +56,15 @@ class Function:
     return scope_depth != 0
 
   # @Audit: Ensure that all of these postprocs are issuing instructions at the first address.
-  def postproc(self):
+  def postproc(self, functions):
     self.postproc_cmpreplace() # @Future: Use a tmp variable to ensure that all cmps are replaceable.
     self.postproc_ifinversion()
     self.postproc_mergeif()
     self.postproc_ifinversion()
     self.postproc_else()
     self.postproc_elseif()
+
+    self.postproc_call(functions)
 
   def postproc_cmpreplace(self):
     i = 0
@@ -190,6 +193,19 @@ class Function:
         self.lines.pop(index)
         self.lines.pop(i-1)
         i -= 1
+  
+  def postproc_call(self, functions):
+    i = 0
+    while i < len(self.lines):
+      call_line = self.lines[i]
+      i += 1
+      
+      if call_line.type == 'call':
+        target_func = functions[call_line.target]
+        
+        call_line.comment = f'eax = {target_func.name}('
+        call_line.comment += ', '.join(target_func.read_vars)
+        call_line.comment += ')'
 
   def print_out(self):
     print('')
@@ -295,8 +311,9 @@ class Parser:
   # The terms "less" and "greater" are used for comparisons of signed integers and the terms "above" and "below" are used for unsigned integers.
 
   def sub(self, dst, src):
-    self._print(f'{dst} -= {src}')
-    self.active_func.lines[-1].flags = (dst, '0')
+    self.mov(dst, f'{dst} - {src}')
+    # self._print(f'{dst} -= {src}')
+    # self.active_func.lines[-1].flags = (dst, '0')
 
   def add(self, dst, src):
     self._print(f'{dst} += {src}')
@@ -308,7 +325,7 @@ class Parser:
 
   def xor(self, dst, src):
     if dst == src:
-      self.mov(dst, '0')
+      self.mov(dst, 0)
     else:
       self._print(f'{dst} ^= {src}')
     self.active_func.lines[-1].flags = (dst, '0')
@@ -366,27 +383,40 @@ class Parser:
       else:
         src = f'arg_{self.ebp_esp}'
 
-    if src not in self.active_func.vars:
-      self.active_func.input_vars.append(src)
-      self.active_func.vars[src] = 'orig_' + dst
-    else:
-      self.active_func.vars[src] = dst
-
     if isinstance(src, int):
       self._print(f'{dst} = {hex(src)}')
     else:
       self._print(f'{dst} = {src}')
+
+    if isinstance(src, str):
+      # @Hack: Removes "+1" or "*4" or whatever suffix.
+      src = src.split(' ', 1)[0]
+      if src not in self.active_func.vars:
+        self.active_func.read_vars.add(src)
+        self.active_func.vars[src] = 'orig_' + src
+
+      self.active_func.vars[dst] = self.active_func.vars[src]
+    else:
+      # Immediate value
+      self.active_func.vars[dst] = src
 
   def ret(self):
     self._print(f'return')
     # Returns often are preceeded by popping a bunch of callee-saved variables.
     # To accomodate for that, we restore the ebp-esp offset as of the previous jump.
     self.ebp_esp = self.stored_ebp_esp
+    
+    for var in self.active_func.vars:
+      if self.active_func.vars[var] != 'orig_' + var:
+        self.active_func.write_vars.add(var)
 
   def call(self, addr):
     if addr not in self.functions:
       self.add_function(addr)
     self._print(f'call {self.functions[addr].name}')
+    self.active_func.lines[-1].type = 'call'
+    self.active_func.lines[-1].target = addr
+    # @Future: Some functions do not have a 0 ebp-esp
     # self.ebp_esp += self.functions[addr].ebp_esp
 
   def push(self, src):
@@ -433,9 +463,10 @@ class Parser:
     self.add_function(start_addr)
     while 1:
       self.parse_function()
-      self.active_func.postproc()
       if len(self.unparsed_functions) == 0:
         break
+    for function in self.functions.values():
+      function.postproc(self.functions)
 
   def read_registers(self, reversed=False):
     byte = self.read_byte()
