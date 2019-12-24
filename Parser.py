@@ -30,6 +30,8 @@ class Function:
     self.addr = addr
     self.name = name
     self.lines = []
+    self.vars = {}
+    self.input_vars = []
 
   def add_line(self, addr):
     self.lines.append(Line(addr))
@@ -107,6 +109,7 @@ class Function:
 
         self.lines.pop(i-1) # scp_line
         self.lines.pop(i-2) # jmp_line
+        i -= 2
 
   def postproc_mergeif(self):
     i = 0
@@ -186,6 +189,7 @@ class Function:
         else_line.comment = f'}} else if {if_line.cond} {{'
         self.lines.pop(index)
         self.lines.pop(i-1)
+        i -= 1
 
   def print_out(self):
     print('')
@@ -222,10 +226,10 @@ class Parser:
   def __init__(self, bytes):
     self.print_bytes = False
     self.ebp_esp = 0 # Value of ebp - esp
+    self.stored_ebp_esp = 0 # Value of ebp - esp as of the most recent jmp instruction
     self.bytes = bytes
     self.functions = {}
     self.unparsed_functions = []
-    self.flags = {}
     self.pending_jumps = set()
 
   def print_out(self):
@@ -291,10 +295,8 @@ class Parser:
   # The terms "less" and "greater" are used for comparisons of signed integers and the terms "above" and "below" are used for unsigned integers.
 
   def sub(self, dst, src):
-    print('-----', dst, src)
     self._print(f'{dst} -= {src}')
     self.active_func.lines[-1].flags = (dst, '0')
-    print(self.active_func.lines[-1])
 
   def add(self, dst, src):
     self._print(f'{dst} += {src}')
@@ -346,10 +348,29 @@ class Parser:
     # Does not set flags, I guess because it's ambiguous
 
   def mov(self, dst, src):
-    if dst == 'ebp' and src == 'esp':
-      self.ebp_esp = 0
-    elif dst == 'esp' and src == 'ebp':
-      self.ebp_esp = 0
+    # @Hack? This isn't quite the right idea, though.
+    # if dst == 'ebp' and src == 'esp':
+    #   self.ebp_esp = 0
+    # elif dst == 'esp' and src == 'ebp':
+    #   self.ebp_esp = 0
+
+    if dst == '[esp]':
+      if self.ebp_esp <= 0:
+        dst = f'local_{-self.ebp_esp}'
+      else:
+        dst = f'arg_{self.ebp_esp}'
+
+    if src == '[esp]':
+      if self.ebp_esp <= 0:
+        src = f'local_{-self.ebp_esp}'
+      else:
+        src = f'arg_{self.ebp_esp}'
+
+    if src not in self.active_func.vars:
+      self.active_func.input_vars.append(src)
+      self.active_func.vars[src] = 'orig_' + dst
+    else:
+      self.active_func.vars[src] = dst
 
     if isinstance(src, int):
       self._print(f'{dst} = {hex(src)}')
@@ -357,25 +378,25 @@ class Parser:
       self._print(f'{dst} = {src}')
 
   def ret(self):
-    self._print('return')
+    self._print(f'return')
+    # Returns often are preceeded by popping a bunch of callee-saved variables.
+    # To accomodate for that, we restore the ebp-esp offset as of the previous jump.
+    self.ebp_esp = self.stored_ebp_esp
 
   def call(self, addr):
     if addr not in self.functions:
       self.add_function(addr)
     self._print(f'call {self.functions[addr].name}')
+    # self.ebp_esp += self.functions[addr].ebp_esp
 
   def push(self, src):
-    self.sub('esp', '4')
     self.ebp_esp -= 4
-    self.active_func.add_line(-1)
     self.mov('[esp]', src)
 
   def pop(self, src):
     self.mov(src, '[esp]')
-    self.active_func.add_line(-1)
-    self.add('esp', '4')
     self.ebp_esp += 4
-
+  
   def cdq(self):
     self._print('edx = (eax < 0) ? -1 : 0')
 
@@ -385,6 +406,7 @@ class Parser:
   def jump(self, cond, amt):
     target = self.addr + amt
     self._print(f'{cond} {target}')
+    self.stored_ebp_esp = self.ebp_esp
     self.active_func.lines[-1].type = 'jmp'
     self.active_func.lines[-1].target = target
     self.active_func.lines[-1].cond = {
