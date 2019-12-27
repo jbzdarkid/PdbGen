@@ -33,9 +33,13 @@ class Function:
     self.vars = {}
     self.read_vars = set()
     self.write_vars = set()
+    self.pending_jumps = set()
 
   def add_line(self, addr):
     self.lines.append(Line(addr))
+    # Jumps which land inside the same function
+    if addr in self.pending_jumps:
+      self.pending_jumps.remove(addr)
 
   def get_index_for_addr(self, addr):
     for i, line in enumerate(self.lines):
@@ -246,7 +250,6 @@ class Parser:
     self.bytes = bytes
     self.functions = {}
     self.unparsed_functions = []
-    self.pending_jumps = set()
 
   def print_out(self):
     for addr in sorted(self.functions.keys()):
@@ -410,6 +413,16 @@ class Parser:
       if self.active_func.vars[var] != 'orig_' + var:
         self.active_func.write_vars.add(var)
 
+    # Jumps which land immediately after return are part of the same function
+    if self.addr in self.active_func.pending_jumps:
+      self.active_func.pending_jumps.remove(self.addr)
+      return False
+    else:
+      # Far jumps to another function (e.g. tail call elision) should be parsed as separate functions.
+      while len(self.active_func.pending_jumps) > 0:
+        self.add_function(self.active_func.pending_jumps.pop())
+      return True
+
   def call(self, addr):
     if addr not in self.functions:
       self.add_function(addr)
@@ -451,7 +464,7 @@ class Parser:
 
     if amt > 0:
       # Jump to (potentially) later in this function
-      self.pending_jumps.add(target)
+      self.active_func.pending_jumps.add(target)
     elif target < self.active_func.addr:
       # Jump to before this function, indicates another function
       self.add_function(target)
@@ -503,9 +516,6 @@ class Parser:
 
     while 1:
       self.active_func.add_line(self.addr)
-      # Jumps which land inside the same function
-      if self.addr in self.pending_jumps:
-        self.pending_jumps.remove(self.addr)
 
       byte = self.read_byte()
 
@@ -610,14 +620,8 @@ class Parser:
           self.shl('eax', self.read_byte())
 
       elif byte == 0xC3:
-        self.ret()
-        # Jumps which land immediately after return are part of the same function
-        if self.addr in self.pending_jumps:
-          self.pending_jumps.remove(self.addr)
-        else:
-          # Far jumps to another function (e.g. tail call elision) should be parsed as separate functions.
-          while len(self.pending_jumps) > 0:
-            self.add_function(self.pending_jumps.pop())
+        end_of_function = self.ret()
+        if end_of_function:
           break
 
       elif byte == 0xC7:
