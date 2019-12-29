@@ -36,6 +36,28 @@ class Condition:
     else:
       return f'{self.a} {self.cond} {self.b}'
 
+class Math:
+  def __init__(self, a, op, b, guarded=False):
+    self.a = a
+    self.op = op
+    self.b = b
+    if self.op in ['&', '|', '<<', '>>', '>>>']:
+      self.guarded = True # Always guarded, otherwise these are very ambiguous.
+    else:
+      self.guarded = guarded
+    if self.op in ['*', '/']:
+      a.guarded = (a.op in ['+', '-'])
+      b.guarded = (b.op in ['+', '-'])
+
+  def __repr__(self):
+    return f'Math({self.a}, {self.op}, {self.b}, {self.guarded})'
+    
+  def __str__(self):
+    if self.guarded:
+      return f'({self.a} {self.op} {self.b})'
+    else:
+      return f'{self.a} {self.op} {self.b}'
+
 class Function:
   def __init__(self, addr, name=''):
     self.addr = addr
@@ -268,6 +290,9 @@ class Line:
   def __str__(self):
     return f'Line({self.addr}, {self.type}, {self.comment})'
 
+REG = ['eax', 'ecx', 'edx', 'ebx', 'esp', 'ebp', 'esi', 'edi']
+BREG = ['al', 'cl', 'dl', 'bl']
+FREG = ['xmm0', 'xmm1']
 class Parser:
   def __init__(self, bytes):
     self.print_bytes = False
@@ -285,12 +310,13 @@ class Parser:
     self.unparsed_functions.append(func)
 
   def _print(self, *args):
+    assert(self.active_func.lines[-1].comment == '')
     self.active_func.lines[-1].comment = str(*args)
 
   def read_bad_byte(self):
     byte = self.bytes[self.addr-1]
     import traceback
-    print('\n'.join(traceback.format_stack()) + 'Failed to parse byte: ' + hex(byte))
+    print('\n'.join(traceback.format_stack()[:-1]) + 'Failed to parse byte: ' + hex(byte))
     exit(1)
 
   def decompose(byte):
@@ -419,10 +445,13 @@ class Parser:
     self._print(f'if ({cond}) {dst} = {src}')
     
   def nop(self):
-    pass
+    self.active_func.lines.pop()
 
   def mov(self, dst, src):
     self.active_func.lines[-1].type = 'mov'
+    if dst == 'esp' and src == 'ebp':
+      self.active_func.ebp_esp = 0
+    
     if dst == '[esp]':
       if self.active_func.ebp_esp <= 0:
         dst = f'local_{-self.active_func.ebp_esp}'
@@ -492,10 +521,17 @@ class Parser:
     self.active_func.ebp_esp += 4
   
   def cdq(self):
-    self.mov('edx', '(eax < 0) ? -1 : 0')
+    self.nop() # @Bug? I have yet to see this matter (at the c-level)
+    # self.mov('edx', '(eax < 0) ? -1 : 0')
 
   def shl(self, dst, amt):
     self.mov(dst, f'{dst}*{2 ** amt}')
+    
+  def sar(self, dst, amt):
+    self.mov(dst, f'{dst}/{2 ** amt}') # Note: Implies dst is signed
+
+  def shr(self, dst, amt):
+    self.mov(dst, f'{dst}/{2 ** amt}') # Note: Implies dst is unsigned
     
   def set(self, cond, dst):
     # Sets a byte
@@ -541,11 +577,7 @@ class Parser:
   def read_registers(self, reversed=False, as_byte=False, as_float=False):
     byte = self.read_byte()
     mask, high, low = Parser.decompose(byte)
-    
-    REG = ['eax', 'ecx', 'edx', 'ebx', 'esp', 'ebp', 'esi', 'edi']
-    BREG = ['al', 'cl', 'dl', 'bl']
-    FREG = ['xmm0', 'xmm1']
-    
+        
     if mask == 0 and low == 4:
       dst = REG[high]
       byte = self.read_byte()
@@ -577,7 +609,9 @@ class Parser:
       else:
         dst = REG[high]
       byte = self.read_byte()
-      if byte == 0x24:
+      if byte == 0x00:
+        src = f'[eax+eax+{self.read_signed_byte()}]'
+      elif byte == 0x24:
         src = self.read_esp_rel()
       else:
         self.read_bad_byte()
@@ -632,6 +666,7 @@ class Parser:
       if self.print_bytes:
         print('')
       byte = self.read_byte()
+      mask, high, low = Parser.decompose(byte)
 
       if byte == 0x03:
         self.add(*self.read_registers())
@@ -731,35 +766,11 @@ class Parser:
       elif byte == 0x4F:
         self.dec('edi')
 
-      elif byte == 0x50:
-        self.push('eax')
-
-      elif byte == 0x51:
-        self.push('ecx')
-
-      elif byte == 0x53:
-        self.push('ebx')
-
-      elif byte == 0x55:
-        self.push('ebp')
-
-      elif byte == 0x56:
-        self.push('esi')
-
-      elif byte == 0x57:
-        self.push('edi')
-
-      elif byte == 0x5B:
-        self.pop('ebx')
-
-      elif byte == 0x5D:
-        self.pop('ebp')
-
-      elif byte == 0x5E:
-        self.pop('esi')
-        
-      elif byte == 0x5F:
-        self.pop('edi')
+      elif byte >= 0x50 and byte <= 0x58:
+        self.push(REG[low])
+      
+      elif byte >= 0x59 and byte <= 0x5F:
+        self.pop(REG[low])
         
       elif byte == 0x66: # @Cleanup: This is an operand-size prefix
         byte = self.read_byte()
@@ -777,6 +788,11 @@ class Parser:
         
       elif byte == 0x6A:
         self.push(self.read_byte())
+        
+      elif byte == 0x6B:
+        dst, src = self.read_registers()
+        # @Hack, ish, I should extend 'mul'.
+        self.mov(dst, f'{src}*{self.read_signed_byte()}')
 
       elif byte == 0x74:
         self.jump('je', self.read_signed_byte())
@@ -828,22 +844,24 @@ class Parser:
 
       elif byte == 0x83:
         byte = self.read_byte()
-        if byte == 0x7D:
-          self.cmp(self.read_ebp_rel(), self.read_signed_byte())
-        elif byte == 0xBE:
-          self.cmp(f'[esi+{self.read_signed_int()}]', self.read_signed_byte())
-        elif byte == 0xC0:
-          self.add('eax', self.read_byte())
-        elif byte == 0xC4:
-          self.add('esp', self.read_byte())
-        elif byte == 0xE4:
-          self._and('esp', self.read_byte())
-        elif byte == 0xE8:
-          self.sub('eax', self.read_byte())
-        elif byte == 0xEC:
-          self.sub('esp', self.read_byte())
-        elif byte == 0xFE:
-          self.cmp('esi', self.read_byte())
+        # @Redundant with read_registers
+        mask, high, low = Parser.decompose(byte)
+
+        if byte == 0x7D: # mask: 1 high: 7
+          self.cmp(f'[{REG[low]}+{self.read_signed_byte()}]', self.read_signed_byte())
+        elif byte == 0xBE: # mask: 2 high: 7
+          self.cmp(f'[{REG[low]}+{self.read_signed_int()}]', self.read_signed_byte())
+        elif mask == 3:
+          if high == 0:
+            self.add(REG[low], self.read_byte())
+          elif high == 4:
+            self._and(REG[low], self.read_byte())
+          elif high == 5:
+            self.sub(REG[low], self.read_byte())
+          elif high == 7:
+            self.cmp(REG[low], self.read_byte())
+          else:
+            self.read_bad_byte()
         else:
           self.read_bad_byte()
 
@@ -877,28 +895,23 @@ class Parser:
       elif byte == 0xA8:
         self.test('al', self.read_byte())
 
-      elif byte == 0xA9:
+      elif byte == 0xA9: # Probably REG[low]
         self.test('eax', self.read_unsigned_int())
 
       elif byte == 0xB3:
+        # Probably BREG[high]
         self.mov('bl', self.read_byte())
 
-      elif byte == 0xB9:
-        self.mov('ecx', self.read_signed_int())
-
-      elif byte == 0xBA:
-        self.mov('edx', self.read_signed_int())
-
-      elif byte == 0xBB:
-        self.mov('ebx', self.read_signed_int())
-
-      elif byte == 0xBF:
-        self.mov('edi', f'[{self.read_unsigned_int()}]')
+      elif byte >= 0xB8 and byte <= 0xBF:
+        self.mov(REG[low], self.read_signed_int())
 
       elif byte == 0xC1:
         byte = self.read_byte()
-        if byte == 0xE0:
-          self.shl('eax', self.read_byte())
+        mask, high, low = Parser.decompose(byte)
+        if byte >= 0xE0 and byte <= 0xE8:
+          self.shl(REG[low], self.read_byte())
+        elif byte == 0xF8:
+          self.sar('eax', self.read_byte())
         else:
           self.read_bad_byte()
 
@@ -908,12 +921,11 @@ class Parser:
           break
 
       elif byte == 0xC7:
-        # @Cleanup: Duplication with read_registers
+        # @Cleanup: Duplication with read_registers (?)
         byte = self.read_byte()
         if byte == 0x04:
           byte = self.read_byte()
           mask, high, low = Parser.decompose(byte)
-          REG = ['eax', 'ecx', 'edx', 'ebx', 'esp', 'ebp', 'esi', 'edi']
 
           if mask == 0:
             self.mov(f'[{REG[high]}]', self.read_unsigned_int())
@@ -1000,6 +1012,8 @@ class Parser:
           self.mov('ecx', '-ecx') # neg opcode
         elif byte == 0xE2:
           self.mul('edx')
+        elif byte == 0xFE:
+          self.div('esi') # Actually idiv -- unsigned division (div is signed division)
         else:
           self.read_bad_byte()
 
