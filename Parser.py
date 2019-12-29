@@ -1,8 +1,15 @@
 class Condition:
-  def __init__(self, a, cond, b):
+  def __init__(self, a, cond, b, guarded=True):
     self.a = a
     self.cond = cond
     self.b = b
+    self.guarded = guarded
+    if self.cond == '&&':
+      a.guarded = (a.cond == '||')
+      b.guarded = (b.cond == '||')
+    if self.cond == '||':
+      a.guarded = (a.cond == '&&')
+      b.guarded = (b.cond == '&&')
 
   def neg(self):
     if self.cond == '&&':
@@ -21,9 +28,13 @@ class Condition:
       return Condition(self.a, cond_inv, self.b)
 
   def __repr__(self):
-    return f'Condition({self.a}, {self.cond}, {self.b})'
+    return f'Condition({self.a}, {self.cond}, {self.b}, {self.guarded})'
+
   def __str__(self):
-    return f'({self.a} {self.cond} {self.b})'
+    if self.guarded:
+      return f'({self.a} {self.cond} {self.b})'
+    else:
+      return f'{self.a} {self.cond} {self.b}'
 
 class Function:
   def __init__(self, addr, name=''):
@@ -65,6 +76,7 @@ class Function:
     self.postproc_ifinversion()
     self.postproc_mergeif()
     self.postproc_ifinversion()
+    self.postproc_mergeif()
     self.postproc_else()
     self.postproc_elseif()
 
@@ -105,6 +117,8 @@ class Function:
           continue # sanity
         if self.interleaves_scope(i, index):
           continue
+        if jmp_line.target < jmp_line.addr:
+          continue # @Future: Loop support
 
         if_line.target = jmp_line.target
         if_line.cond = if_line.cond.neg()
@@ -212,6 +226,8 @@ class Function:
         call_line.comment += ')'
 
   def print_out(self):
+    if len(self.lines) == 0:
+      return
     print('')
     print(f'// Address {hex(self.addr)}')
     print(f'void {self.name}() {{')
@@ -262,6 +278,18 @@ class Parser:
 
   def _print(self, *args):
     self.active_func.lines[-1].comment = str(*args)
+
+  def read_bad_byte(self):
+    byte = self.bytes[self.addr-1]
+    import traceback
+    print('\n'.join(traceback.format_stack()) + 'Failed to parse byte: ' + hex(byte))
+    exit(1)
+
+  def decompose(byte):
+    mask = (byte & 0b11000000) >> 6
+    high = (byte & 0b00111000) >> 3
+    low  = (byte & 0b00000111)
+    return mask, high, low
 
   def read_byte(self):
     byte = self.bytes[self.addr]
@@ -322,9 +350,9 @@ class Parser:
     self._print(f'{dst} += {src}')
     self.active_func.lines[-1].flags = (dst, '0')
 
-  def mul(self, dst, src):
+  def mul(self, src, dst='eax'):
     self._print(f'{dst} *= {src}')
-    self.active_func.lines[-1].flags = (dst, '0')
+    self.active_func.lines[-1].flags = ('{dst}', '0')
 
   def xor(self, dst, src):
     if dst == src:
@@ -355,7 +383,12 @@ class Parser:
 
   def test(self, dst, src):
     self._print(f'test {dst}, {src}')
-    self.active_func.lines[-1].flags = (dst, src)
+    self.active_func.lines[-1].type = 'cmp'
+    if dst == src:
+      self.active_func.lines[-1].flags = (dst, 0)
+    else:
+      # Bitwise and
+      self.active_func.lines[-1].flags = (f'({dst} & {src})', 0)
 
   def dec(self, dst):
     self.sub(dst, '1')
@@ -366,6 +399,16 @@ class Parser:
   def div(self, src):
     self._print(f'edx = eax % {src}; eax = eax / {src}')
     # Does not set flags, I guess because it's ambiguous
+
+  def lea(self, dst, src):
+    # @Hack: This is not how you remove an indirection.
+    self.mov(dst, src.replace('[', '').replace(']', ''))
+
+  def cmov(self, cond, dst, src):
+    self._print(f'if ({cond}) {dst} = {src}')
+    
+  def nop(self):
+    pass
 
   def mov(self, dst, src):
     # @Hack? This isn't quite the right idea, though.
@@ -445,6 +488,10 @@ class Parser:
 
   def shl(self, dst, amt):
     self.mov(dst, f'{dst} * {2 ** amt}')
+    
+  def set(self, cond, dst):
+    # Sets a byte
+    self._print(f'if flags[{cond}] {dst} = 1')
 
   def jump(self, cond, amt):
     target = self.addr + amt
@@ -459,6 +506,8 @@ class Parser:
       'jle': '<=',
       'jge': '>=',
       'jg': '>',
+      'ja': '>', # Note: Indicates comparison is unsigned
+      'js': '< 0',
       'jmp': None,
     }[cond]
 
@@ -481,29 +530,89 @@ class Parser:
     for function in self.functions.values():
       function.postproc(self.functions)
 
-  def read_registers(self, reversed=False):
+  def read_registers(self, reversed=False, as_byte=False, as_float=False):
     byte = self.read_byte()
-    if byte == 0xC0:
-      dst, src = 'eax', 'eax'
-    elif byte == 0x45:
-      dst, src = 'eax', self.read_ebp_rel()
-    elif byte == 0x4D:
-      dst, src = 'ecx', self.read_ebp_rel()
-    elif byte == 0x55:
-      dst, src = 'edx', self.read_ebp_rel()
-    elif byte == 0xC1:
-      dst, src = 'eax', 'ecx'
-    elif byte == 0xC6:
-      dst, src = 'eax', 'esi'
-    elif byte == 0xE5:
-      dst, src = 'esp', 'ebp'
-    elif byte == 0xEC:
-      dst, src = 'ebp', 'esp'
-    elif byte == 0xF1:
-      dst, src = 'esi', 'ecx'
+    mask, high, low = Parser.decompose(byte)
+    
+    REG = ['eax', 'ecx', 'edx', 'ebx', 'esp', 'ebp', 'esi', 'edi']
+    BREG = ['al', 'cl', 'dl', 'bl']
+    FREG = ['xmm0', 'xmm1']
+    
+    if mask == 0 and low == 4:
+      dst = REG[high]
+      byte = self.read_byte()
+      mask, high, low = Parser.decompose(byte)
+      if mask == 0:
+        src = f'[{REG[high]}+{REG[low]}]'
+      elif mask == 2:
+        src = f'[{REG[high]}*4+{REG[low]}]'
+      else:
+        self.read_bad_byte()
+
+    elif byte == 0x01:
+      dst = f'[{REG[low]}]'
+      assert(as_float)
+      src = FREG[high]
+
+    elif byte == 0x05: # @Cleanup: Very similar to 0x0D
+      assert(as_float)
+      dst = FREG[high]
+      src = f'[{self.read_unsigned_int()}]'
+
+    elif byte == 0x0D:
+      dst = REG[high]
+      src = f'[{self.read_unsigned_int()}]'
+
+    elif mask == 1 and low == 4:
+      if as_float:
+        dst = FREG[high]
+      else:
+        dst = REG[high]
+      byte = self.read_byte()
+      if byte == 0x24:
+        src = self.read_esp_rel()
+      else:
+        self.read_bad_byte()
+
+    elif mask == 1:
+      if as_byte:
+        dst = BREG[high]
+      else:
+        dst = REG[high]
+      # @Bug: This is no longer calling read_ebp_rel / read_esp_rel.
+      src = f'[{REG[low]}+{self.read_signed_byte()}]'
+
+    elif mask == 2:
+      if as_byte:
+        byte = self.read_byte()
+        if byte == 0x24:
+          dst = BREG[high]
+          src = f'[{REG[low]}+{self.read_signed_int()}]'
+        else:
+          self.read_bad_byte()
+      elif as_float:
+        dst = FREG[high]
+        if byte == 0x86 or byte == 0x83:
+          src = f'[{REG[low]}+{self.read_signed_int()}]'
+        else:
+          self.read_bad_byte()
+      else:
+        dst = REG[high]
+        src = f'[{REG[low]}+{self.read_signed_int()}]'
+
+    elif mask == 3:
+      if as_byte:
+        dst, src = BREG[high], BREG[low]
+      else:
+        dst, src = REG[high], REG[low]
+
     else:
-      print('Failed to parse byte: ' + hex(byte))
-      exit(1)
+      self.read_bad_byte()
+
+    if byte == 0xE0:
+      assert(False)
+      dst, src = 'eax', self.read_byte()
+
 
     if not reversed:
       return [dst, src]
@@ -517,6 +626,8 @@ class Parser:
     while 1:
       self.active_func.add_line(self.addr)
 
+      if self.print_bytes:
+        print('')
       byte = self.read_byte()
 
       if byte == 0x03:
@@ -527,8 +638,59 @@ class Parser:
 
       # 0x0F is for 2-byte opcodes
       elif byte == 0x0F:
-        if self.read_byte() == 0xAF:
+        byte = self.read_byte()
+        if byte == 0x14:
+          byte = self.read_byte()
+          if byte == 0xC0:
+            self.nop() # unpcklps xmm0,xmm0
+          else:
+            self.read_bad_byte()
+        elif byte == 0x28:
+          byte = self.read_byte()
+          if byte == 0xC1: # Probably standard read_registers, 0b11 000 001
+            self.mov('xmm0', 'xmm1')
+          else:
+            self.read_bad_byte()
+        elif byte == 0x2F:
+          byte = self.read_byte()
+          if byte == 0xC1:
+            self.cmp('xmm0', 'xmm1')
+          else:
+            self.read_bad_byte()
+        elif byte == 0x45:
+          self.cmov('!=', *self.read_registers())
+        elif byte == 0x57:
+          byte = self.read_byte()
+          if byte == 0xC0:
+            self.xor('xmm0', 'xmm0')
+          else:
+            self.read_bad_byte()
+        elif byte == 0x84:
+          self.jump('je', self.read_signed_int())
+        elif byte == 0x85:
+          self.jump('jne', self.read_signed_int())
+        elif byte == 0x90:
+          byte = self.read_byte()
+          if byte == 0xC1:
+            self.set('OF', 'cl')
+          else:
+            self.read_bad_byte()
+
+        elif byte == 0xAF:
           self.mul(*self.read_registers())
+        elif byte == 0xB6:
+          byte = self.read_byte()
+          if byte == 0x44:
+            byte = self.read_byte()
+            if byte == 0x24:
+              # movzx byte->int
+              self.mov('eax', '(int)'+self.read_esp_rel())
+            else:
+              self.read_bad_byte()
+          else:
+            self.read_bad_byte()
+        else:
+          self.read_bad_byte()
 
       elif byte == 0x23:
         self._and(*self.read_registers())
@@ -536,8 +698,35 @@ class Parser:
       elif byte == 0x2B:
         self.sub(*self.read_registers())
 
+      elif byte == 0x32:
+        byte = self.read_byte()
+        if byte == 0xDB:
+          self.xor('bl', 'bl')
+        else:
+          self.read_bad_byte()
+
       elif byte == 0x33:
         self.xor(*self.read_registers())
+
+      elif byte == 0x38:
+        self.cmp(*self.read_registers(reversed=True, as_byte=True))
+
+      elif byte == 0x39:
+        byte = self.read_byte()
+        
+        if byte == 0x8E:
+          self.cmp(f'esi + {self.read_signed_int()}', 'ecx')
+        else:
+          self.read_bad_byte()
+
+      elif byte == 0x3B:
+        self.cmp(*self.read_registers())
+
+      elif byte == 0x41:
+        self.inc('ecx')
+
+      elif byte == 0x4F:
+        self.dec('edi')
 
       elif byte == 0x50:
         self.push('eax')
@@ -545,26 +734,61 @@ class Parser:
       elif byte == 0x51:
         self.push('ecx')
 
+      elif byte == 0x53:
+        self.push('ebx')
+
       elif byte == 0x55:
         self.push('ebp')
 
       elif byte == 0x56:
         self.push('esi')
 
+      elif byte == 0x57:
+        self.push('edi')
+
+      elif byte == 0x5B:
+        self.pop('ebx')
+
       elif byte == 0x5D:
         self.pop('ebp')
 
       elif byte == 0x5E:
         self.pop('esi')
+        
+      elif byte == 0x5F:
+        self.pop('edi')
+        
+      elif byte == 0x66: # @Cleanup: This is an operand-size prefix
+        byte = self.read_byte()
+        if byte == 0x0F:
+          byte = self.read_byte()
+          if byte == 0xD6:
+            self.mov(*self.read_registers(as_float=True))
+          else:
+            self.read_bad_byte()
+        else:
+          self.read_bad_byte()
 
       elif byte == 0x68:
         self.push(self.read_unsigned_int())
+        
+      elif byte == 0x6A:
+        self.push(self.read_byte())
 
       elif byte == 0x74:
         self.jump('je', self.read_signed_byte())
 
       elif byte == 0x75:
         self.jump('jne', self.read_signed_byte())
+
+      elif byte == 0x77:
+        self.jump('ja', self.read_signed_byte())
+
+      elif byte == 0x78:
+        self.jump('js', self.read_signed_byte())
+
+      elif byte == 0x7C:
+        self.jump('jl', self.read_signed_byte())
 
       elif byte == 0x7D:
         self.jump('jge', self.read_signed_byte())
@@ -575,12 +799,40 @@ class Parser:
       elif byte == 0x7F:
         self.jump('jg', self.read_signed_byte())
 
+      elif byte == 0x80:
+        byte = self.read_byte()
+        if byte == 0x7C:
+          byte = self.read_byte()
+          if byte == 0x24:
+            self.cmp(f'[esp+{self.read_signed_byte()}]', self.read_signed_byte())
+          else:
+            self.read_bad_byte()
+        elif byte == 0xBC:
+          byte = self.read_byte()
+          if byte == 0x24:
+            self.cmp(f'[esp+{self.read_signed_byte()}]', self.read_signed_int())
+          else:
+            self.read_bad_byte()
+        else:
+          self.read_bad_byte()
+    
+      elif byte == 0x81:
+        byte = self.read_byte()
+        if byte == 0x78:
+          self.cmp(f'[eax+{self.read_signed_byte()}]', f'[{self.read_unsigned_int()}]')
+        else:
+          self.read_bad_byte()
+
       elif byte == 0x83:
         byte = self.read_byte()
         if byte == 0x7D:
           self.cmp(self.read_ebp_rel(), self.read_signed_byte())
+        elif byte == 0xBE:
+          self.cmp(f'[esi+{self.read_signed_int()}]', self.read_signed_byte())
         elif byte == 0xC0:
           self.add('eax', self.read_byte())
+        elif byte == 0xC4:
+          self.add('esp', self.read_byte())
         elif byte == 0xE4:
           self._and('esp', self.read_byte())
         elif byte == 0xE8:
@@ -589,35 +841,61 @@ class Parser:
           self.sub('esp', self.read_byte())
         elif byte == 0xFE:
           self.cmp('esi', self.read_byte())
+        else:
+          self.read_bad_byte()
+
+      elif byte == 0x84:
+        self.test(*self.read_registers(as_byte=True))
+
+      elif byte == 0x85:
+        self.test(*self.read_registers())
+
+      elif byte == 0x88:
+        self.mov(*self.read_registers(reversed=True, as_byte=True))
 
       elif byte == 0x89:
         self.mov(*self.read_registers(reversed=True))
+
+      elif byte == 0x8A:
+        self.mov(*self.read_registers(as_byte=True))
 
       elif byte == 0x8B:
         self.mov(*self.read_registers())
 
       elif byte == 0x8D:
-        byte = self.read_byte()
-        if byte == 0x04:
-          byte = self.read_byte()
-          if byte == 0x80:
-            self.mov('eax', 'eax + 4 * eax')
-        elif byte == 0x4E:
-          self.mov('ecx', f'esi + {self.read_signed_byte()}')
+        self.lea(*self.read_registers())
 
       elif byte == 0x99:
         self.cdq()
+        
+      elif byte == 0xA1:
+        self.mov('eax', f'[{self.read_unsigned_int()}]')
+
+      elif byte == 0xA8:
+        self.test('al', self.read_byte())
+
+      elif byte == 0xA9:
+        self.test('eax', self.read_unsigned_int())
+
+      elif byte == 0xB3:
+        self.mov('bl', self.read_byte())
 
       elif byte == 0xB9:
         self.mov('ecx', self.read_signed_int())
 
       elif byte == 0xBA:
-        self.mov('edx', self.read_unsigned_int())
+        self.mov('edx', self.read_signed_int())
+
+      elif byte == 0xBB:
+        self.mov('ebx', self.read_signed_int())
+
+      elif byte == 0xBF:
+        self.mov('edi', f'[{self.read_unsigned_int()}]')
 
       elif byte == 0xC1:
-        byte = self.read_byte()
-        if byte == 0xE0:
-          self.shl('eax', self.read_byte())
+        self.shl(*self.read_registers())
+        # if byte == 0xE0:
+        #   self.shl('eax', self.read_byte())
 
       elif byte == 0xC3:
         end_of_function = self.ret()
@@ -625,21 +903,103 @@ class Parser:
           break
 
       elif byte == 0xC7:
-        if self.read_byte() == 0x45:
-          self.mov(self.read_ebp_rel(), self.read_signed_int())
+        # @Cleanup: Duplication with read_registers
+        byte = self.read_byte()
+        if byte == 0x04:
+          byte = self.read_byte()
+          mask, high, low = Parser.decompose(byte)
+          REG = ['eax', 'ecx', 'edx', 'ebx', 'esp', 'ebp', 'esi', 'edi']
 
+          if mask == 0:
+            self.mov(f'[{REG[high]}]', self.read_unsigned_int())
+          elif mask == 2:
+            self.mov(f'[{REG[high]}*4 + {REG[low]}]', self.read_unsigned_int())
+          else:
+            self.read_bad_byte()
+        elif byte == 0x44:
+          byte = self.read_byte()
+          if byte == 0x24:
+            self.mov(self.read_esp_rel(), self.read_signed_int())
+          elif byte == 0x85:
+            byte = self.read_byte()
+            if byte == 0x00:
+              self.mov('[ebp+eax*4]', self.read_signed_int())
+            else:
+              self.read_bad_byte()
+          else:
+            self.read_bad_byte()
+
+        elif byte == 0x45:
+          self.mov(self.read_ebp_rel(), self.read_signed_int())
+        elif byte == 0x86:
+          self.mov(f'[esi+{self.read_signed_int()}]', self.read_signed_int())
+        else:
+          self.read_bad_byte()
+
+      elif byte == 0xD8:
+        byte = self.read_byte()
+        if byte == 0x83:
+          self.add('st(0)', f'[ebx+{self.read_signed_int()}]')
+        else:
+          self.read_bad_byte()
+          
+      elif byte == 0xD9:
+        byte = self.read_byte()
+        if byte == 0x9B:
+          self.mov(f'[ebx+{self.read_signed_int()}]', 'st(0)')
+        else:
+          self.read_bad_byte()
+      
       elif byte == 0xE8:
         # Relative near call
         relative_addr = self.read_signed_int()
         self.call(self.addr + relative_addr) # Relative to the next call, so evaluate after reading
 
+      elif byte == 0xE9:
+        self.jump('jmp', self.read_signed_int())
+
       elif byte == 0xEB:
         self.jump('jmp', self.read_signed_byte())
 
-      elif byte == 0xF7:
-        if self.read_byte() == 0x7D:
-          self.div(self.read_ebp_rel())
+      elif byte == 0xF3:
+        byte = self.read_byte()
+        if byte == 0x0F:
+          byte = self.read_byte()
+          if byte == 0x10:
+            self.mov(*self.read_registers(as_float=True))
+          elif byte == 0x11:
+            self.mov(*self.read_registers(as_float=True, reversed=True))
+          elif byte == 0x59:
+            self.mul(*self.read_registers(as_float=True, reversed=True))
+          elif byte == 0x7E:
+            self.mov(*self.read_registers(as_float=True))
+          else:
+            self.read_bad_byte()
+        else:
+          self.read_bad_byte()
 
+      elif byte == 0xF6:
+        byte = self.read_byte()
+        if byte == 0x86:
+          self.test(f'esi + {self.read_signed_int()}', self.read_signed_byte())
+        else:
+          self.read_bad_byte()
+
+      elif byte == 0xF7:
+        byte = self.read_byte()
+        if byte == 0x7D:
+          self.div(self.read_ebp_rel())
+        elif byte == 0x86:
+          self.test(f'[esi+{self.read_signed_int()}]', self.read_signed_int())
+        elif byte == 0xD9:
+          self.mov('ecx', '-ecx') # neg opcode
+        elif byte == 0xE2:
+          self.mul('edx')
+        else:
+          self.read_bad_byte()
+
+      elif byte == 0xFF:
+        # @Bug: Ignoring dst (which is probably what controls the action here)
+        _, src = self.read_registers()
       else:
-        print('Failed to parse byte: ' + hex(byte))
-        exit(1)
+        self.read_bad_byte()
