@@ -45,6 +45,8 @@ class Function:
     self.read_vars = set()
     self.write_vars = set()
     self.pending_jumps = set()
+    self.ebp_esp = 4 # Value of ebp - esp (starts at 4, aka address of first argument)
+    self.stored_ebp_esp = None # Value of ebp - esp as of the most recent jmp instruction
 
   def add_line(self, addr):
     self.lines.append(Line(addr))
@@ -230,7 +232,9 @@ class Function:
       return
     print('')
     print(f'// Address {hex(self.addr)}')
-    print(f'void {self.name}() {{')
+    print(f'void {self.name}(', end='')
+    print(', '.join(self.read_vars), end='')
+    print(') {')
     indent = 1
     for line in self.lines:
       if line.type == 'scope_end' or line.type == 'else' or line.type == 'elseif':
@@ -248,11 +252,17 @@ class Line:
     self.type = ''
 
   def print_out(self, indent):
+    if self.type == 'mov':
+      if 'esp = ' in self.comment:
+        return
+
     # print(str(self.addr) + '\t', end='')
     print(' ' * indent * TAB_SIZE, end='')
     if self.type == 'if':
       print(f'if {self.cond} {{')
     else:
+      # @Hack.
+      self.comment = self.comment.replace('+-', '-')
       print(self.comment)
 
   def __str__(self):
@@ -261,8 +271,6 @@ class Line:
 class Parser:
   def __init__(self, bytes):
     self.print_bytes = False
-    self.ebp_esp = 0 # Value of ebp - esp
-    self.stored_ebp_esp = 0 # Value of ebp - esp as of the most recent jmp instruction
     self.bytes = bytes
     self.functions = {}
     self.unparsed_functions = []
@@ -326,7 +334,7 @@ class Parser:
       return 'local_%X' % -b
 
   def read_esp_rel(self):
-    b = self.read_signed_byte() - self.ebp_esp
+    b = self.read_signed_byte() - self.active_func.ebp_esp
     if b > 0:
       return 'arg_%X' % b
     else:
@@ -343,36 +351,39 @@ class Parser:
 
   def sub(self, dst, src):
     self.mov(dst, f'{dst} - {src}')
-    # self._print(f'{dst} -= {src}')
+    # @Bug: Sub *can* (but rarely is) used for jmp instructions
     # self.active_func.lines[-1].flags = (dst, '0')
 
   def add(self, dst, src):
-    self._print(f'{dst} += {src}')
+    self.mov(dst, f'{dst}+{src}')
     self.active_func.lines[-1].flags = (dst, '0')
 
   def mul(self, src, dst='eax'):
-    self._print(f'{dst} *= {src}')
-    self.active_func.lines[-1].flags = ('{dst}', '0')
+    self.mov(dst, f'{dst}*{src}')
+    self.active_func.lines[-1].flags = (dst, '0')
 
   def xor(self, dst, src):
     if dst == src:
       self.mov(dst, 0)
     else:
-      self._print(f'{dst} ^= {src}')
+      self.mov(dst, f'{dst} ^ {src}')
     self.active_func.lines[-1].flags = (dst, '0')
 
   def _and(self, dst, src):
     if src == 0:
       self.mov(dst, '0')
     else:
-      self._print(f'{dst} &= {hex(src)}')
+      if isinstance(src, int):
+        self.mov(dst, f'{dst} & {hex(src)}')
+      else:
+        self.mov(dst, f'{dst} & {src}')
     self.active_func.lines[-1].flags = (dst, '0')
 
   def _or(self, dst, src):
     if src == 0xFF:
       self.mov(dst, '-1')
     else:
-      self._print(f'{dst} |= {src}')
+      self.mov(dst, f'{dst} | {src}')
     self.active_func.lines[-1].flags = (dst, '0')
 
   # Both test eax, eax and cmp eax, eax will set SF=1 if eax < 0
@@ -411,23 +422,18 @@ class Parser:
     pass
 
   def mov(self, dst, src):
-    # @Hack? This isn't quite the right idea, though.
-    # if dst == 'ebp' and src == 'esp':
-    #   self.ebp_esp = 0
-    # elif dst == 'esp' and src == 'ebp':
-    #   self.ebp_esp = 0
-
+    self.active_func.lines[-1].type = 'mov'
     if dst == '[esp]':
-      if self.ebp_esp <= 0:
-        dst = f'local_{-self.ebp_esp}'
+      if self.active_func.ebp_esp <= 0:
+        dst = f'local_{-self.active_func.ebp_esp}'
       else:
-        dst = f'arg_{self.ebp_esp}'
+        dst = f'arg_{self.active_func.ebp_esp}'
 
     if src == '[esp]':
-      if self.ebp_esp <= 0:
-        src = f'local_{-self.ebp_esp}'
+      if self.active_func.ebp_esp <= 0:
+        src = f'local_{-self.active_func.ebp_esp}'
       else:
-        src = f'arg_{self.ebp_esp}'
+        src = f'arg_{self.active_func.ebp_esp}'
 
     if isinstance(src, int):
       self._print(f'{dst} = {hex(src)}')
@@ -435,22 +441,23 @@ class Parser:
       self._print(f'{dst} = {src}')
 
     if isinstance(src, str):
-      # @Hack: Removes "+1" or "*4" or whatever suffix.
-      src = src.split(' ', 1)[0]
-      if src not in self.active_func.vars:
-        self.active_func.read_vars.add(src)
-        self.active_func.vars[src] = 'orig_' + src
-
-      self.active_func.vars[dst] = self.active_func.vars[src]
+      for var in ['eax', 'ebx', 'ecx', 'edx', 'esi', 'edi', 'xmm0', 'xmm1']:
+        if var not in src:
+          continue
+        if var not in self.active_func.vars:
+          self.active_func.read_vars.add(var)
+          self.active_func.vars[var] = 'orig_' + var
+        src = src.replace(var, str(self.active_func.vars[var]))
+      self.active_func.vars[dst] = src
     else:
       # Immediate value
       self.active_func.vars[dst] = src
 
   def ret(self):
-    self._print(f'return')
+    self._print(f'return eax')
     # Returns often are preceeded by popping a bunch of callee-saved variables.
     # To accomodate for that, we restore the ebp-esp offset as of the previous jump.
-    self.ebp_esp = self.stored_ebp_esp
+    self.active_func.ebp_esp = self.active_func.stored_ebp_esp
     
     for var in self.active_func.vars:
       if self.active_func.vars[var] != 'orig_' + var:
@@ -472,22 +479,23 @@ class Parser:
     self._print(f'call {self.functions[addr].name}')
     self.active_func.lines[-1].type = 'call'
     self.active_func.lines[-1].target = addr
+    self.active_func.vars['eax'] = 'eax' # Prevents substitution
     # @Future: Some functions do not have a 0 ebp-esp
     # self.ebp_esp += self.functions[addr].ebp_esp
 
   def push(self, src):
-    self.ebp_esp -= 4
+    self.active_func.ebp_esp -= 4
     self.mov('[esp]', src)
 
   def pop(self, src):
     self.mov(src, '[esp]')
-    self.ebp_esp += 4
+    self.active_func.ebp_esp += 4
   
   def cdq(self):
-    self._print('edx = (eax < 0) ? -1 : 0')
+    self.mov('edx', '(eax < 0) ? -1 : 0')
 
   def shl(self, dst, amt):
-    self.mov(dst, f'{dst} * {2 ** amt}')
+    self.mov(dst, f'{dst}*{2 ** amt}')
     
   def set(self, cond, dst):
     # Sets a byte
@@ -496,7 +504,7 @@ class Parser:
   def jump(self, cond, amt):
     target = self.addr + amt
     self._print(f'{cond} {target}')
-    self.stored_ebp_esp = self.ebp_esp
+    self.active_func.stored_ebp_esp = self.active_func.ebp_esp
     self.active_func.lines[-1].type = 'jmp'
     self.active_func.lines[-1].target = target
     self.active_func.lines[-1].cond = {
@@ -609,11 +617,6 @@ class Parser:
     else:
       self.read_bad_byte()
 
-    if byte == 0xE0:
-      assert(False)
-      dst, src = 'eax', self.read_byte()
-
-
     if not reversed:
       return [dst, src]
     else:
@@ -715,7 +718,7 @@ class Parser:
         byte = self.read_byte()
         
         if byte == 0x8E:
-          self.cmp(f'esi + {self.read_signed_int()}', 'ecx')
+          self.cmp(f'esi+{self.read_signed_int()}', 'ecx')
         else:
           self.read_bad_byte()
 
@@ -893,9 +896,11 @@ class Parser:
         self.mov('edi', f'[{self.read_unsigned_int()}]')
 
       elif byte == 0xC1:
-        self.shl(*self.read_registers())
-        # if byte == 0xE0:
-        #   self.shl('eax', self.read_byte())
+        byte = self.read_byte()
+        if byte == 0xE0:
+          self.shl('eax', self.read_byte())
+        else:
+          self.read_bad_byte()
 
       elif byte == 0xC3:
         end_of_function = self.ret()
@@ -913,7 +918,7 @@ class Parser:
           if mask == 0:
             self.mov(f'[{REG[high]}]', self.read_unsigned_int())
           elif mask == 2:
-            self.mov(f'[{REG[high]}*4 + {REG[low]}]', self.read_unsigned_int())
+            self.mov(f'[{REG[high]}*4+{REG[low]}]', self.read_unsigned_int())
           else:
             self.read_bad_byte()
         elif byte == 0x44:
@@ -981,7 +986,7 @@ class Parser:
       elif byte == 0xF6:
         byte = self.read_byte()
         if byte == 0x86:
-          self.test(f'esi + {self.read_signed_int()}', self.read_signed_byte())
+          self.test(f'[esi+{self.read_signed_int()}]', self.read_signed_byte())
         else:
           self.read_bad_byte()
 
