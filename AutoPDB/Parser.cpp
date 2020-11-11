@@ -2,12 +2,9 @@
 #include <iostream>
 
 // @Performance, why am I copying this buffer? I guess in the future this will be just a reference to the buffer...
-Parser::Parser(const std::vector<byte>& bytes) : _bytes(bytes)
-{
-}
+Parser::Parser(const std::vector<byte>& bytes) : _bytes(bytes) {}
 
-void Parser::Parse(unsigned int startAddr)
-{
+void Parser::Parse(unsigned int startAddr) {
     std::string name = "func0000";
     _functions[startAddr] = name;
     _unparsedFunctions.emplace_back(startAddr);
@@ -15,33 +12,22 @@ void Parser::Parse(unsigned int startAddr)
 
 }
 
-void Parser::ParseOneFunction()
-{
+void Parser::ParseOneFunction() {
     _addr = _unparsedFunctions.front();
     _unparsedFunctions.pop_back();
     std::cout << "\nFunction " << _functions[_addr] << " at address " << std::hex << std::showbase << _addr << std::endl;
 
     while (1) {
         switch (ReadByte()) {
-        case 0x03:
-            auto [src, dst] = ReadRegisters();
-            Add(src, dst);
+        case 0x03: Add();
             break;
-        case 0x0B:
-            auto [src, dst] = ReadRegisters();
-            Or(src, dst);
+        case 0x0B: Or();
             break;
-        case 0x23:
-            auto [src, dst] = ReadRegisters();
-            And(src, dst);
+        case 0x23: And();
             break;
-        case 0x2B:
-            auto [src, dst] = ReadRegisters();
-            Sub(src, dst);
+        case 0x2B: Sub();
             break;
-        case 0x33:
-            auto [src, dst] = ReadRegisters();
-            Xor(src, dst);
+        case 0x33: Xor();
             break;
         case 0x51:
             Push("eax");
@@ -55,8 +41,7 @@ void Parser::ParseOneFunction()
         case 0x83:
             switch (ReadByte()) {
             case 0x7D:
-                auto [src, dst] = ReadRegisters();
-                Cmp(src, dst);
+                Cmp();
                 break;
             case 0xC0:
                 Add("eax", ReadByte());
@@ -71,39 +56,36 @@ void Parser::ParseOneFunction()
                 ReadBadByte();
             }
         case 0x89:
-            auto [dst, src] = ReadRegisters();
-            Mov(dst, src);
+            Mov(true);
             break;
-
+        case 0x8B:
+            Mov();
+            break;
+        case 0x99:
+            Cdq();
+            break;
+        case 0xC3:
+            Ret();
+            break;
+        case 0xC7:
+        switch (ReadByte()) {
+            case 0x45:
+                Mov()
+                break;
+            default: ReadBadByte();
+        }
         // 0x0F is for 2-byte opcodes.
         case 0x0F:
             switch (ReadByte()) {
             case 0xAF:
-                auto [src, dst] = ReadRegisters();
-                Mul(src, dst);
+                Mul();
                 break;
-            default:
-                ReadBadByte();
+            default: ReadBadByte();
             }
             break;
-        default:
-            ReadBadByte();
+        default: ReadBadByte();
         }
-
     }
-
-      elif byte == 0x89:
-        self.mov(*self.read_registers(reversed=True))
- 
-      elif byte == 0x8B:
-        self.mov(*self.read_registers())
-
-      elif byte == 0x99:
-        self.cdq()
-      
-      elif byte == 0xC3:
-        self.ret()
-        break
 
       elif byte == 0xC7:
         if self.read_byte() == 0x45:

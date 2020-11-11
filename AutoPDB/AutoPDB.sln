@@ -5,6 +5,8 @@ VisualStudioVersion = 16.0.29411.108
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "AutoPDB", "AutoPDB.vcxproj", "{A4C474C3-86AB-4913-B9A0-31F15833838B}"
 EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "Test", "Test\Test.vcxproj", "{1A220FB6-A4D7-4C93-968D-134F295DD28F}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|x64 = Debug|x64
@@ -21,6 +23,14 @@ Global
 		{A4C474C3-86AB-4913-B9A0-31F15833838B}.Release|x64.Build.0 = Release|x64
 		{A4C474C3-86AB-4913-B9A0-31F15833838B}.Release|x86.ActiveCfg = Release|Win32
 		{A4C474C3-86AB-4913-B9A0-31F15833838B}.Release|x86.Build.0 = Release|Win32
+		{1A220FB6-A4D7-4C93-968D-134F295DD28F}.Debug|x64.ActiveCfg = Debug|x64
+		{1A220FB6-A4D7-4C93-968D-134F295DD28F}.Debug|x64.Build.0 = Debug|x64
+		{1A220FB6-A4D7-4C93-968D-134F295DD28F}.Debug|x86.ActiveCfg = Debug|Win32
+		{1A220FB6-A4D7-4C93-968D-134F295DD28F}.Debug|x86.Build.0 = Debug|Win32
+		{1A220FB6-A4D7-4C93-968D-134F295DD28F}.Release|x64.ActiveCfg = Release|x64
+		{1A220FB6-A4D7-4C93-968D-134F295DD28F}.Release|x64.Build.0 = Release|x64
+		{1A220FB6-A4D7-4C93-968D-134F295DD28F}.Release|x86.ActiveCfg = Release|Win32
+		{1A220FB6-A4D7-4C93-968D-134F295DD28F}.Release|x86.Build.0 = Release|Win32
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

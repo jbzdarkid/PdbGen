@@ -20,16 +20,16 @@ private:
     void ReadBadByte();
 
     // Maybe, might need cleanup
-    void Sub(const std::string& src, const std::string& dst);
-    void Add(const std::string& src, const std::string& dst);
-    void Add(const std::string& dst, byte src);
-    void Mul(const std::string& src, const std::string& dst);
-    void Xor(const std::string& src, const std::string& dst);
-    void And(const std::string& src, const std::string& dst);
-    void Or(const std::string& src, const std::string& dst);
-    void Cmp(const std::string& src, const std::string& dst);
-    void Test(const std::string& src, const std::string& dst);
-    void Dec(const std::string& src, const std::string& dst);
+    void Sub();
+    void Add();
+    void Mul();
+    void Mov(bool reversed = false);
+    void Xor();
+    void And();
+    void Or();
+    void Cmp();
+    void Test();
+    void Dec();
     void Inc(const std::string& dst);
     void Div(const std::string& src);
     void Push(const std::string& src);
@@ -37,6 +37,9 @@ private:
     void Ret();
     void Call(unsigned int addr);
     void Cdq();
+
+    void Add(const std::string& dst, byte src);
+    void Sub(const std::string& dst, byte src);
 
     // Maybe
     std::string ReadEbpRel();
